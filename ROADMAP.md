@@ -74,11 +74,20 @@ Last updated: 2026-09-29
 
 ## Next
 
-### Phase 8: Landing page and polish
+### Phase 9: Hardening and launch
 
 ---
 
 ## Built (not yet verified end-to-end)
+
+### Phase 8: Landing page and polish ✓
+- Rewrote landing page at `/`: hero with gradient halo, 4-stat hero strip, step-numbered How it works, 6-card feature grid (compliance, bot tracking, dashboard, templates, CSV, no review gating), "Honest answers" FAQ that explicitly addresses "we cannot detect posted reviews" and "no review gating", final CTA section.
+- Sticky backdrop-blur marketing header with Pricing/Privacy/Terms nav; proper footer with copyright + nav + contact link.
+- SEO: full `metadata` in root layout (metadataBase, title template, description, OG, Twitter card, icons), page-specific metadata on Terms/Privacy and the landing page.
+- `robots.ts` (disallows `/app/`, `/api/`, points to sitemap); `sitemap.ts` (lists marketing routes).
+- PWA: `manifest.ts` (standalone display, theme color) + `/public/icon.svg` brand mark.
+- `not-found.tsx` (404) and `error.tsx` (500 with reset) with friendly cards and CTAs.
+- Replaced Terms/Privacy placeholders with real, plain-language policies covering acceptable use, no-incentivized-reviews rule, billing/subscriptions, subprocessors (Supabase/Resend/Polar/Vercel), data retention, and user rights.
 
 ### Phase 7: Billing (Polar) ✓
 - Provider: Polar (polar.sh), Merchant of Record. Installed `@polar-sh/sdk`.
@@ -101,19 +110,8 @@ Last updated: 2026-09-29
 
 ## Planned
 
-### Phase 7: Billing
-- Plan constants and server-side limit enforcement (already enforced at 10/month on Free; needs to be tightened per-plan after billing integration)
-- Usage meter and upgrade prompts
-- Billing provider integration (Polar or Lemon Squeezy)
-- Checkout, webhook handling, customer portal link
-
-### Phase 8: Landing page and polish
-- Final marketing landing page (hero, how-it-works, pricing, FAQ with honest Google/Compliance answers)
-- SEO metadata and PWA manifest
-- Empty states, error pages, loading skeletons, toasts
-- Final Privacy & Terms pages; mobile polish pass at 375px
-
 ### Phase 9: Hardening and launch
+- Two-account cross-tenant RLS isolation test (already in Known Issues)
 - Rate limiting (per-business sends, per-IP on auth and /r/[code])
 - Security headers (CSP, X-Frame-Options, Referrer-Policy)
 - Final README and Vercel deployment guide (SPF/DKIM/DMARC)

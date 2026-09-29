@@ -4,12 +4,44 @@ import { AlertCircle } from "lucide-react"
 import "./globals.css"
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "https://reviewnudge.app"
+  ),
   title: {
-    default: "ReviewNudge — Send review requests in 10 seconds",
+    default: "ReviewNudge — Get more Google reviews on autopilot",
     template: "%s | ReviewNudge",
   },
   description:
-    "Send Google review requests to your customers in 10 seconds. Automatic reminders, click tracking, and compliance-friendly emails.",
+    "Send Google review requests to your customers in 10 seconds. Automatic reminders, bot-proof click tracking, one-click unsubscribe, and CAN-SPAM compliant emails.",
+  applicationName: "ReviewNudge",
+  manifest: "/manifest.webmanifest",
+  openGraph: {
+    type: "website",
+    title: "ReviewNudge — Get more Google reviews on autopilot",
+    description:
+      "Send Google review requests in 10 seconds. Automatic reminders, click tracking, and compliance-friendly emails.",
+    siteName: "ReviewNudge",
+    images: [
+      {
+        url: "/icon.svg",
+        width: 512,
+        height: 512,
+        alt: "ReviewNudge",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "ReviewNudge — Get more Google reviews on autopilot",
+    description:
+      "Send Google review requests in 10 seconds. Automatic reminders, click tracking, and compliance-friendly emails.",
+    images: ["/icon.svg"],
+  },
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 }
 
 async function SetupBanner() {

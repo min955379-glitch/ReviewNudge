@@ -212,21 +212,21 @@ Polar is our billing provider (polar.sh). All billing integration is behind env 
 ---
 
 ## Phase 8: Landing page and polish
-**Status:** Not started
+**Status:** Built, not yet verified end-to-end (mobile QA + design pass pending)
 
 **Checklist:**
-- [ ] Landing page at `/` (hero, how-it-works, pricing, FAQ, footer)
-- [ ] SEO metadata (title, description, Open Graph)
-- [ ] PWA manifest and icons
-- [ ] Empty states for all list pages
-- [ ] Error pages (404, 500)
-- [ ] Loading states and skeletons
-- [ ] Privacy and Terms pages
-- [ ] Mobile polish pass (375px testing)
+- [x] Landing page at `/` (hero with gradient + stats, how-it-works 3-step cards, 6-item feature grid, honest FAQ with "we cannot detect reviews" and "no review gating" answers, final CTA)
+- [x] Sticky marketing header with backdrop blur, Pricing/Privacy/Terms nav links, proper footer with contact
+- [x] SEO metadata (title template, description, metadataBase, Open Graph, Twitter card, icons, robots, sitemap)
+- [x] PWA manifest (`/manifest.webmanifest`) and SVG app icon (`/icon.svg`)
+- [x] Error pages: `not-found.tsx` (friendly 404 with Go home / Dashboard buttons) and `error.tsx` (Try again / Go home reset button)
+- [x] Privacy and Terms fleshed out with real clauses (acceptable-use, no-review-gating rule, billing, subprocessors, DPA-style retention, privacy rights)
+- [x] `robots.txt` disallows `/app/` and `/api/`, points to sitemap
+- [x] `sitemap.xml` lists all public marketing routes with last-modified
 
 **Done when:**
-- Landing page renders and looks good on mobile
-- All pages have reasonable empty/loading/error states
+- Landing page renders and looks good on mobile (manual 375px pass still pending — visual QA against a real browser)
+- All pages have reasonable empty/loading/error states (404 + 500 in place; customer/request empty states existed from earlier phases; skeletons remain a stretch goal)
 - PWA manifest is present and app is installable
 
 ---

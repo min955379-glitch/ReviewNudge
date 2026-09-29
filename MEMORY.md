@@ -146,14 +146,34 @@
   - README DB setup lists migration 00005 and updated env vars.
   - Quota enforcement already reads `business.plan` directly — so as soon as webhook writes the plan column, plan limits apply automatically (300 for pro, 1500 for business).
 
+- **Phase 8 (2026-09-29): Landing page and polish**
+  - Rewrote landing page at `src/app/(marketing)/page.tsx`:
+    - Hero with radial-gradient halo, "Start free / See pricing" CTAs, and a 4-stat strip (10s send time, 3-day reminder, 0 fake reviews, 100% CAN-SPAM).
+    - Numbered "How it works" cards (Add customer → We send → One reminder) with step badges.
+    - Muted-background feature grid (6 cards): compliant, bot-proof tracking, dashboard, templates, CSV import, no review gating.
+    - "Honest answers" FAQ that is explicit about what ReviewNudge cannot do: we can't detect posted reviews, we never send more than one reminder, we don't support review gating, we don't use AI.
+    - Final CTA section.
+  - Rewrote marketing layout (`src/app/(marketing)/layout.tsx`): sticky backdrop-blur header with Pricing/Privacy/Terms links; full footer with nav + contact email.
+  - Replaced placeholder Terms/Privacy with real plain-language pages: acceptable-use rules, explicit "no incentivized reviews" clause, billing/cancellation, subprocessors (Supabase/Resend/Polar/Vercel), retention, privacy rights.
+  - SEO/platform metadata (`src/app/layout.tsx`): added `metadataBase`, OG + Twitter cards, icons, `/manifest.webmanifest`.
+  - New PWA/sitemap/robots files:
+    - `src/app/manifest.ts` (standalone, SVG icon, theme color)
+    - `src/app/robots.ts` (disallows /app/ and /api/, points to sitemap)
+    - `src/app/sitemap.ts` (marketing routes with priorities/changefreq)
+    - `public/icon.svg` brand mark
+  - New error pages: `src/app/not-found.tsx` (friendly 404), `src/app/error.tsx` (500 with reset).
+  - Build + lint clean; smoke-tested production server: `/`, `/pricing`, `/privacy`, `/terms`, `/signup`, `/login`, `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest` all return 200; unknown path returns 404.
+
 ## Next up
 
-**Phase 8: Landing page and polish**
-- Final marketing landing page (hero, how-it-works, pricing, FAQ with honest Google/Compliance answers)
-- SEO metadata, PWA manifest, legal pages flesh-out (Terms/Privacy already exist as stubs)
-- Empty states, 404/error pages
-- Mobile polish pass (375px breakpoint QA)
-- Copy pass across all templates/defaults
+**Phase 9: Hardening and launch**
+- Cross-account RLS isolation test (move from Known Issues once verified against live Supabase)
+- Rate limiting (per-business sends, per-IP on auth and /r/[code])
+- Security headers (CSP, X-Frame-Options, Referrer-Policy, HSTS)
+- Security audit pass (secrets not exposed; inputs validated; env vars not leaked to client)
+- Final README pass (deployment guide, email domain verification screenshots, Vercel setup)
+- Seed/demo data script (optional)
+- Manual 375px mobile QA pass
 
 ## Open questions
 
