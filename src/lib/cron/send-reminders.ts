@@ -30,6 +30,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server"
 import { signToken } from "@/lib/utils/crypto"
 import { sendReviewEmail } from "@/lib/email/send"
 import { planLimit, REMINDERS_COUNT_TOWARD_QUOTA } from "@/lib/billing/plans"
+import { countRecentSends } from "@/lib/billing/quota"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Biz = Database["public"]["Tables"]["businesses"]["Row"]
@@ -77,22 +78,11 @@ async function getTemplates(sb: Sb, businessId: string): Promise<Record<string, 
  * Every successful email (initial send or reminder) counts as one. Initial
  * sends have `status IN ('sent','clicked')` with `sent_at` in the window;
  * reminders reuse the original request row but stamp `reminder_sent_at`, so
- * we count those separately. A row where both timestamps fall inside the
+ * Counting note: initial sends and reminders are stored in different columns
+ * so we count those separately. A row where both timestamps fall inside the
  * window counts as 2 (initial + reminder) — exactly what we want.
+ * `countRecentSends` is imported from @/lib/billing/quota.
  */
-async function countRecentSends(sb: Sb, businessId: string): Promise<number> {
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  const tbl = () => sb.from("review_requests").eq("business_id", businessId)
-  const initialRes = await tbl()
-    .select("id", { count: "exact", head: true })
-    .in("status", ["sent", "clicked"])
-    .gte("sent_at", since)
-  const reminderRes = await tbl()
-    .select("id", { count: "exact", head: true })
-    .not("reminder_sent_at", "is", null)
-    .gte("reminder_sent_at", since)
-  return ((initialRes.count as number) ?? 0) + ((reminderRes.count as number) ?? 0)
-}
 
 async function sendReminderForRow(
   sb: Sb,
@@ -161,6 +151,7 @@ export async function runReminderCron(): Promise<ReminderRunResult> {
   const cutoff = new Date(Date.now() - REMINDER_DELAY_MS).toISOString()
   const staleBefore = new Date(Date.now() - CLAIM_STALE_MS).toISOString()
   const now = new Date().toISOString()
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
   // 1. Release claims from crashed/stuck workers older than CLAIM_STALE_MS.
   const { data: released } = await sb
@@ -232,7 +223,7 @@ export async function runReminderCron(): Promise<ReminderRunResult> {
     const key = r.business.id
     if (!byBusiness.has(key)) {
       const limit = REMINDERS_COUNT_TOWARD_QUOTA ? planLimit(r.business.plan) : null
-      const used = limit !== null ? await countRecentSends(sb, r.business.id) : 0
+      const used = limit !== null ? await countRecentSends(sb, r.business.id, since30d) : 0
       byBusiness.set(key, { business: r.business, rows: [], used, limit })
     }
     byBusiness.get(key)!.rows.push(r)

@@ -112,13 +112,28 @@
   - README/ROADMAP cleanup: fixed Next.js version (16), listed all 3 migrations in database setup, rewrote deploy notes with all env vars including `CRON_SECRET` and the daily cron schedule, marked Phases 1–5 as "Built, not yet verified against live Supabase and Resend" instead of "Completed", removed duplicate Phase 6 entry and outdated items (placeholder notices, Resend-waiting entries), clarified that reminders count toward quota.
   - Docs: `PHASES.md`, `ROADMAP.md`, `README.md`, `MEMORY.md` all updated.
 
+- **Phase 6 (2026-09-29): Dashboard polish**
+  - Dashboard rewrite (`src/app/app/page.tsx`, server component):
+    - 30-day "Emails sent" stat now correctly sums initial sends + reminders (was previously using `created_at >= since AND status IN (sent,clicked)` which under-counted).
+    - New inline-SVG line chart (`src/components/dashboard/line-chart.tsx`) — no external chart dependency, renders daily send counts (initial + reminders) for the last 30 days with gradient area fill, gridlines, axis labels, and native SVG `<title>` tooltips. Shows empty-state when zero sends.
+    - New quota meter card (`src/components/ui/progress.tsx`): uses `countRecentSends` from a shared helper, shows `used / limit` with color-coded bar (green < 80%, amber ≥ 80%, red at limit) and an upgrade CTA linking to `/app/settings/billing`. Unlimited plans show a full green bar and "Unlimited sends" copy.
+    - Quick-add form card (`src/components/dashboard/quick-add-form.tsx` + server action `src/app/app/quick-add-action.ts`) — name + email + consent checkbox → adds the customer (or updates existing, respecting unsubscribed flag) and immediately sends a review request via `sendToOne`. Uses React `useActionState`, inline field errors, spinner while pending, auto-resets on success.
+    - Recent-requests list capped at 5 with "View all →" link to Requests page.
+    - Quick-actions panel retained with live customer count.
+    - "Emails sent" stat replaces the old "Requests sent" to clarify reminders count too; clicks/click-rate/manually reviewed stat cards preserved.
+  - New shared quota helper `src/lib/billing/quota.ts` exporting `countRecentSends(sb, businessId, sinceIso)` used by `sendToOne`, `sendBulk`, `resendRequest`, reminder cron, dashboard, and billing page — eliminates three duplicate implementations.
+  - New placeholder billing page `src/app/app/settings/billing/page.tsx`: displays current plan badge, usage count vs limit, explains that billing provider integration is Phase 7, shows an "Upgrade to Pro (coming soon)" disabled button.
+  - New shadcn-style `src/components/ui/progress.tsx` (color-coded by percentage).
+  - Build + lint both clean; dev server verified `/`, `/login`, `/app`, `/app/settings/billing` all return 200.
+
 ## Next up
 
-**Phase 6: Dashboard polish**
-- 30-day requests chart (line chart of sends per day)
-- Quota meter on dashboard showing free-plan usage (e.g. 7/10) with upgrade prompt
-- Faster quick-add customer flow from dashboard (target <10 seconds)
-- Optional reminder-sent stat card
+**Phase 7: Billing**
+- Plan constants + per-plan enforcement beyond free (already enforced at 10/30d on free)
+- Billing provider integration (Polar or Lemon Squeezy — need user to pick)
+- Checkout flow + webhook handler (`/api/webhooks/billing` route already exists as placeholder)
+- Customer portal link
+- Enable Pro/Business plan quota (currently unlimited) after webhook integration is verified
 
 ## Open questions
 

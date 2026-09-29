@@ -74,13 +74,20 @@ Last updated: 2026-09-29
 
 ## Next
 
-### Phase 6: Dashboard polish
-- 30-day requests chart (line chart of sends per day)
-- Faster quick-add customer flow (target <10 seconds from dashboard)
-- Quota meter showing free-plan usage (e.g. 7/10) with upgrade prompt
-- Optional reminder-sent stat card
+### Phase 7: Billing
 
 ---
+
+## Built (not yet verified end-to-end)
+
+### Phase 6: Dashboard polish ✓
+- Stat cards: emails sent (30d, initial + reminders), click rate, clicks, manually confirmed reviews
+- 30-day sends chart: dependency-free inline SVG line chart, daily buckets, native tooltip, responsive
+- Quota meter: rolling 30-day usage vs plan limit (color-coded — green/amber/red), upgrade CTA at/near limit
+- Quick-add form embedded directly on the dashboard (name + email + consent checkbox → add customer and send a review request in one submit, inline success/error, form auto-resets)
+- Recent-requests list with "View all" link; Quick Actions panel retained with customer count + links
+- Placeholder Billing page at `/app/settings/billing` showing current plan, usage, and "Upgrade to Pro (coming soon)" CTA
+- Quota counting extracted into shared `src/lib/billing/quota.ts` (`countRecentSends`) used by initial/bulk/resend actions, reminder cron, dashboard, and billing page
 
 ## Planned
 

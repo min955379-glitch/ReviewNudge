@@ -5,6 +5,7 @@ import { generateShortCode, signToken } from "@/lib/utils/crypto"
 import { sendReviewEmail } from "@/lib/email/send"
 import { sendRequestSchema, bulkSendSchema, markReviewedSchema } from "@/lib/validation/request"
 import { planLimit } from "@/lib/billing/plans"
+import { countRecentSends } from "@/lib/billing/quota"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Biz = Database["public"]["Tables"]["businesses"]["Row"]
@@ -15,27 +16,13 @@ type Tpl = Database["public"]["Tables"]["message_templates"]["Row"]
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Qb = any
 
-function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || ""
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+function since30d(): string {
+  return new Date(Date.now() - THIRTY_DAYS_MS).toISOString()
 }
 
-/**
- * Count emails sent by this business in the rolling 30-day window.
- * Initial sends = rows with status sent/clicked and sent_at in window.
- * Reminders    = rows with reminder_sent_at in window (same row can count twice).
- */
-async function countRecentSends(sb: Qb, businessId: string): Promise<number> {
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  const tbl = () => sb.from("review_requests").eq("business_id", businessId)
-  const initial = await tbl()
-    .select("id", { count: "exact", head: true })
-    .in("status", ["sent", "clicked"])
-    .gte("sent_at", since)
-  const reminders = await tbl()
-    .select("id", { count: "exact", head: true })
-    .not("reminder_sent_at", "is", null)
-    .gte("reminder_sent_at", since)
-  return ((initial.count as number) ?? 0) + ((reminders.count as number) ?? 0)
+function appUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || ""
 }
 
 function quotaError(biz: Biz, used: number, limit: number): string {
@@ -162,7 +149,7 @@ export async function sendToOne(_prev: unknown, formData: FormData): Promise<Sen
   // Monthly quota check (Free plan: 10 emails / 30 days)
   const limit = planLimit(business.plan)
   if (limit !== null) {
-    const used = await countRecentSends(sb, business.id)
+    const used = await countRecentSends(sb, business.id, since30d())
     if (used >= limit) return { error: quotaError(business, used, limit) }
   }
 
@@ -205,7 +192,7 @@ export async function sendBulk(_prev: unknown, formData: FormData): Promise<Send
 
   // Monthly quota (Free plan)
   const limit = planLimit(business.plan)
-  let used = limit !== null ? await countRecentSends(sb, business.id) : 0
+  let used = limit !== null ? await countRecentSends(sb, business.id, since30d()) : 0
 
   const templates = await getTemplates(sb, business.id)
   let sent = 0
@@ -250,7 +237,7 @@ export async function resendRequest(_prev: unknown, formData: FormData): Promise
 
   const limit = planLimit(business.plan)
   if (limit !== null) {
-    const used = await countRecentSends(sb, business.id)
+    const used = await countRecentSends(sb, business.id, since30d())
     if (used >= limit) return { error: quotaError(business, used, limit) }
   }
 

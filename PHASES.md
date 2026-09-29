@@ -165,15 +165,18 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 
 ---
 
-## Phase 6: Dashboard
-**Status:** Not started
+## Phase 6: Dashboard polish
+**Status:** Built, not yet verified against live Supabase and Resend
 
 **Checklist:**
-- [ ] Stat cards: requests sent (30d), click rate, reminders sent, manually confirmed reviews
-- [ ] Chart: requests sent per day, last 30 days
-- [ ] Recent activity list with status badges
-- [ ] "Send a request" primary button (prominent, large on mobile)
-- [ ] Quick-add customer form or modal on dashboard (the 10-second flow)
+- [x] Stat cards: emails sent (30d, initial + reminders), click rate, clicks, manually confirmed reviews
+- [x] 30-day sends chart (inline SVG line chart, daily buckets of initial sends + reminders, tooltip via `<title>`)
+- [x] Recent activity list with status badges + "View all" link
+- [x] Monthly quota meter (rolling 30-day window, color-coded Progress bar — green/amber/red, upgrade CTA at/near limit)
+- [x] "Send a request" primary CTA (large, stays visible on mobile)
+- [x] Quick-add customer form on dashboard (name + email + consent → add & send in one submit, success/error inline, form resets after success)
+- [x] Placeholder Billing page (`/app/settings/billing`) with current-plan summary and "Upgrade to Pro (coming soon)" state
+- [x] Quota counting extracted into shared `src/lib/billing/quota.ts` (`countRecentSends`) used by initial/bulk/resend actions, cron, dashboard, and billing page
 
 **Done when:**
 - Dashboard loads with accurate stats from real data
