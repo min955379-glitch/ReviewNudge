@@ -134,6 +134,7 @@ If `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set, t
    - `supabase/migrations/00003_mailing_address.sql` — required `mailing_address` column on businesses (CAN-SPAM)
    - `supabase/migrations/00004_reminder_claim_column.sql` — adds `reminder_claimed_at` for safe reminder cron claiming, plus supporting indexes
    - `supabase/migrations/00005_billing_columns.sql` — adds Polar subscription/customer ID columns and period tracking
+   - **If any migration fails with "column already exists"** (e.g. you created the project against an earlier alpha build), stop and instead run `supabase/run-all-migrations-safe.sql` followed by `supabase/repair-legacy-schema.sql` — these are idempotent scripts that add only what's missing and reshape old `message_templates`/`click_events` tables to match the current schema without dropping data.
 ```bash
 bash scripts/verify-anon-rls.sh
 ```

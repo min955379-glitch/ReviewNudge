@@ -27,19 +27,24 @@ fi
 
 fetch_count() {
   local table="$1"
-  curl -sS "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}?select=id&limit=1" \
-    -H "apikey: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
-    -H "Authorization: Bearer ${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
-    -o /tmp/rls_$$.json \
-    -w "%{http_code}"
-  local code=$?
   local body
-  body=$(cat /tmp/rls_$$.json 2>/dev/null || echo "")
-  rm -f /tmp/rls_$$.json
-  # 401/403 = good (no access). 200 with empty array = also good.
-  if echo "$code" | grep -Eq "^40[13]$"; then echo "BLOCKED"; return 0; fi
-  if [ "$code" = "200" ] && [ "$body" = "[]" ]; then echo "EMPTY"; return 0; fi
-  echo "LEAK(http=$code body=$body)"
+  body=$(curl -sS "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}?select=id&limit=1" \
+    -H "apikey: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
+    -H "Authorization: Bearer ${NEXT_PUBLIC_SUPABASE_ANON_KEY}")
+  local code=$?
+  # First, detect HTTP status via a separate tight call (curl -w on the same
+  # stream above interleaves with -o; we use the body heuristic plus an -I
+  # probe to confirm unauthorized vs empty). 401/403 = blocked. 200 + body=[] =
+  # RLS is on and returns no rows (also acceptable).
+  local status
+  status=$(curl -sS -o /dev/null -w "%{http_code}" \
+    "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}?select=id&limit=1" \
+    -H "apikey: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
+    -H "Authorization: Bearer ${NEXT_PUBLIC_SUPABASE_ANON_KEY}")
+  if [ "$code" -ne 0 ]; then echo "ERROR"; return 1; fi
+  if echo "$status" | grep -Eq "^40[13]$"; then echo "BLOCKED"; return 0; fi
+  if [ "$status" = "200" ] && [ "$body" = "[]" ]; then echo "EMPTY"; return 0; fi
+  echo "LEAK(http=$status body=$body)"
   return 1
 }
 

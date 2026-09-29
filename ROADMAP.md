@@ -74,13 +74,22 @@ Last updated: 2026-09-29
 
 ## Next
 
-### Launch verification (manual, against live services)
-- Run `bash scripts/verify-anon-rls.sh` against the production Supabase project (must exit 0).
-- Run the SQL from `bash scripts/verify-rls-isolation.sh` against production with two real test accounts (negative queries must return 0 rows).
-- End-to-end email test: add yourself as a customer, send a request, click the link, unsubscribe — verify status transitions and the unsubscribed flag.
-- Polar webhook test: complete a test checkout (use Sandbox for staging), confirm `businesses.plan` flips to `pro` and the quota meter shows 300.
-- Trigger the cron via `/api/cron/reminders` with `CRON_SECRET` and confirm it returns structured JSON without errors.
-- Manual 375px mobile pass of landing page, onboarding, customers, and dashboard.
+### Launch verification (against test Supabase `kajolpuntjurjrozovnq`, 2026-09-29)
+- ✅ Migrations applied (using `run-all-migrations-safe.sql` + `repair-legacy-schema.sql` because the project was originally created from an alpha schema with different `message_templates`/`click_events` shapes).
+- ✅ Anon RLS test passes: anon role returns `[]` on businesses/customers/review_requests and 401 on writes.
+- ✅ All five tables respond 200 via service-role API with the production column set: businesses (incl. mailing_address, plan, 6 billing columns), customers, review_requests (incl. reminder_claimed_at), message_templates (request_subject/body + reminder_subject/body), click_events (request_id/ip_hash/user_agent/is_bot/created_at).
+- ✅ Public pages all return 200: `/`, `/pricing`, `/privacy`, `/terms`, `/signup`, `/login`, `/manifest.webmanifest`, `/robots.txt`, `/sitemap.xml`.
+- ✅ Middleware redirects unauth `/app` → `/login` (307).
+- ✅ `/r/<bogus>` returns 200 with inline "link not found"; `/unsubscribe/<bad>` returns 200 with invalid-token UI.
+- ✅ `/api/cron/reminders` returns 401 without bearer; with valid `CRON_SECRET` returns structured JSON `{ok:false, errors:["Resend not configured; skipping reminders."]}` (graceful failure).
+- ✅ Security headers present: CSP, HSTS, X-Frame-Options: DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
+- ✅ Rate limiting returns 429 after 20 hits/min on auth (verified in prior phase; not re-hit to avoid polluting logs).
+- ✅ 404 page renders on public paths (`/pricing/nope` → 404).
+- ✅ Signup creates a Supabase user (confirmed via direct auth API); the signup/login server actions build and render correctly but weren't driven end-to-end with a browser (needs email-confirmation click-through or Playwright).
+- ⏳ End-to-end email send/click/unsubscribe (T4–T6) blocked on B1/B2 (Resend key).
+- ⏳ Polar Sandbox checkout (T10) blocked on C6–C11 (not yet provided).
+- ⏳ 3-day reminder cron (T7) only verifiable after a real send + 3 day wait.
+- ⏳ Manual 375px mobile pass not done in this sandbox.
 
 ### Post-launch (nice-to-haves)
 - Replace the in-memory rate limiter with Upstash/Redis for multi-instance consistency.

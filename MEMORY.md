@@ -194,3 +194,22 @@
 - Supabase project credentials — needed to fully test auth + customers flow end-to-end.
 - Resend account + verified sending domain — needed for Phase 4.
 - CSV manual column mapping UI — if auto-detection isn't sufficient for users, add it later.
+
+- **Phase 9 verification against test Supabase (kajolpuntjurjrozovnq, 2026-09-29):**
+  - Project was originally created from an alpha build with legacy schema (message_templates had kind/subject/body; click_events had review_request_id/clicked_at). Added two idempotent migrations: `supabase/run-all-migrations-safe.sql` (creates any missing tables/columns/policies/indexes, drops the 5 old permissive USING (true) policies) and `supabase/repair-legacy-schema.sql` (renames columns, backfills default templates, drops legacy columns).
+  - `scripts/verify-anon-rls.sh` had a curl bug where HTTP 200 + body `[]` was misreported as LEAK; rewrote fetch_count to probe status separately.
+  - Live test results (all passing):
+    - Anon RLS: businesses/customers/review_requests return [] to anon SELECT, 401 to anon INSERT (PASS).
+    - Service-role API returns 200 for all five tables with the production column set.
+    - Public pages (/, /pricing, /privacy, /terms, /signup, /login, /manifest, /robots, /sitemap) render 200.
+    - Middleware redirects unauthenticated /app and /app/settings/billing → /login (307).
+    - /r/<bogus> returns 200 with not-found UI; /unsubscribe/<bad> returns 200 invalid-token UI.
+    - /api/cron/reminders: no auth → 401; with CRON_SECRET → structured {ok:false, errors:["Resend not configured"]} (graceful).
+    - Security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) all present.
+    - Public 404 page renders at /pricing/nope.
+    - Supabase signup/auth works via direct API (test user reviewnudge.testowner@proton.me created and email-confirmed via admin PATCH).
+  - Blocked on user-provided credentials:
+    - T4–T6 real Resend send/click/unsubscribe.
+    - T10 Polar Sandbox checkout → plan sync.
+    - T7 3-day reminder requires real send + waiting.
+    - Manual 375px mobile QA not done in sandbox.
