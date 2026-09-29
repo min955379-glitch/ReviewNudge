@@ -37,6 +37,13 @@
 - **Delete confirm:** Uses native `confirm()` to keep things simple; can be swapped to a nicer modal later.
 - **Customer data fetch:** Done server-side on page load; mutations trigger `router.refresh()` to re-fetch after add/delete/import. Filter/sort are client-side on the current snapshot.
 
+- **Phase 5 (2026-09-29): Tracking & reminders**
+  - `src/app/r/[code]/page.tsx`: added bot/scanner detection via user-agent regex (`BOT_UA_RE`) before updating click counts/status. Bots still see the CTA page (so preview renders work) but clicks aren't counted; a small "Automated preview" notice is shown when a bot UA is detected. UA list covers bots, crawlers, link scanners, email/chat previews (WhatsApp/Slack/Teams/Telegram/Facebook/Twitter/LinkedIn), HTTP libraries (curl/wget/python-requests/httpclient), monitoring/uptime agents, and headless browsers.
+  - `src/lib/cron/send-reminders.ts` — new file: `runReminderCron()` uses the Supabase **service-role client** to bypass RLS, finds `review_requests` with `status='sent'`, `first_clicked_at IS NULL`, `reminder_sent_at IS NULL`, `manually_marked_reviewed=false`, and `sent_at` older than 3 days (500-row safety cap per run). Groups by business to fetch templates once, re-checks customer eligibility (email/consent/unsubscribed) immediately before send, uses the reminder template (falls back to request), sends at 200ms intervals, and stamps `reminder_sent_at` on success. Reminders reuse the original short_code (no new tracking row) so the same link keeps working; at most one reminder per request. Graceful structured error if Supabase/Resend not configured.
+  - `src/app/api/cron/reminders/route.ts`: replaced placeholder with real handler that checks `Authorization: Bearer <CRON_SECRET>` (returns 401 on missing/bad token) and invokes `runReminderCron()`, returning 200 with counts on success or 500 on error.
+  - `vercel.json`: new file scheduling `/api/cron/reminders` hourly (`0 * * * *`).
+  - Build and lint pass cleanly. Verified via `next start`: `/r/bogus` returns 200 (with and without user agent), `/api/cron/reminders` returns 401 with missing or wrong Authorization header.
+
 - **Phase 4 (2026-09-29): Sending emails**
   - Installed `resend` package.
   - `src/lib/utils/crypto.ts`: `generateShortCode()` (8-char alphanumeric via `crypto.randomBytes` with collision retry), `signToken()`/`verifyToken()` for HMAC-SHA256-signed unsubscribe tokens (30-day TTL, base64url encoding, `timingSafeEqual`); fallback secret in dev, throws in prod without `UNSUBSCRIBE_SIGNING_SECRET`.
@@ -70,13 +77,17 @@
 - **Tracking page UX:** Instead of an auto-302-redirect (which mail scanners trigger, inflating click counts and opening Google for bots), Phase 4 shows a clear "Open Google Reviews" button. Bot user-agent filtering comes in Phase 5.
 - **Bulk-send form contract:** Server action reads `customer_ids_json` (JSON array) rather than repeated FormData fields — simpler for the client to construct.
 - **Dashboard Date.now lint:** Server component uses `Date.now` for the 30-day window; disabled the react-hooks/purity rule because RSC renders don't need idempotence the way client renders do.
+- **Bot filtering:** Opted for a deny-list UA regex over IP/rate-limiting or bot-detection libraries — it's the simplest robust approach, email providers (Gmail/Outlook) all use fetchers that clearly identify themselves, and false negatives are harmless (a few extra counted clicks are far better than false positives that hide real clicks). Bots still see the review CTA page so email previews render correctly; they just don't inflate stats.
+- **Reminder reuses short_code:** A reminder email goes to the same tracking link (`/r/<same-code>`) rather than generating a new one, so the customer has one consistent link. `reminder_sent_at` on the original row prevents re-sending. We don't create new rows for reminders to keep the requests table a clean list of "original requests."
+- **Cron auth:** Uses standard `Authorization: Bearer <CRON_SECRET>` header (Vercel Cron sends this automatically when you set `CRON_SECRET` env var) rather than a query-string secret, to avoid leaking the secret into logs.
+- **Cron uses service role:** The cron route can't have a logged-in user, so it uses the Supabase service-role client to bypass RLS — safe because it only touches rows matching the reminder query and never exposes data to the caller.
 
 ## Next up
 
-**Phase 5: Tracking polish + reminders**
-- Bot/scanner user-agent filtering on `/r/[code]` (so link scanners don't inflate click counts)
-- `POST /api/cron/reminders` protected by `CRON_SECRET`
-- Reminder logic: `status='sent'`, not clicked, no reminder yet, `sent_at` > 3 days ago; send reminder email once and set `reminder_sent_at`
+**Phase 6: Dashboard polish**
+- 30-day requests chart (line chart of sends per day)
+- Faster quick-add customer flow (target <10 seconds from dashboard)
+- Optional reminder-sent stat card
 
 ## Open questions
 

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server"
+import { runReminderCron } from "@/lib/cron/send-reminders"
 
 /**
  * POST /api/cron/reminders
- * Protected by CRON_SECRET header. Called by Vercel Cron every hour.
- * Implemented in Phase 5.
+ * Protected by CRON_SECRET (Authorization: Bearer <secret>).
+ * Called by Vercel Cron every hour; sends at most one reminder per request,
+ * only for emails delivered >= 3 days ago with no click and no prior reminder.
  */
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization")
@@ -13,9 +15,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  return NextResponse.json({
-    ok: true,
-    message: "Reminder cron is a placeholder. Implemented in Phase 5.",
-    sent: 0,
-  })
+  try {
+    const result = await runReminderCron()
+    return NextResponse.json(result, { status: result.ok ? 200 : 500 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+  }
 }

@@ -1,7 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, ExternalLink, Star } from "lucide-react"
+import { AlertCircle, Bot, ExternalLink, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { headers } from "next/headers"
 import Link from "next/link"
 import { signToken } from "@/lib/utils/crypto"
 
@@ -16,8 +17,15 @@ type TReq = {
   customer: { email: string | null } | null
 }
 
+/** Well-known bot/scanner/preview user agents that shouldn't count as clicks. */
+const BOT_UA_RE =
+  /bot|crawler|spider|scraper|curl|wget|python-requests|httpclient|scanner|preview|headless|whatsapp|slackbot|teams|telegrambot|facebookexternalhit|twitterbot|linkedinbot|pingdom|monitoring|uptime|googleother|google-extended|mediapartners|apis-google|gtmetrix|ahrefs|semrush|mj12bot|dotbot/i
+
 export default async function TrackingRedirectPage({ params }: Params) {
   const { code } = await params
+  const requestHeaders = await headers()
+  const userAgent = (requestHeaders.get("user-agent") ?? "").toLowerCase()
+  const isBot = BOT_UA_RE.test(userAgent)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -67,17 +75,21 @@ export default async function TrackingRedirectPage({ params }: Params) {
     ? `${appUrl}/unsubscribe/${signToken({ business_id: business.id, email: customer.email })}`
     : null
 
-  // Mark clicked if not already (cast the chained update to satisfy strict RSC types)
-  type ChainableUpdate = { update: (v: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } }
-  const rq = supabase.from("review_requests") as unknown as ChainableUpdate
-  if (req.status !== "clicked" && !req.first_clicked_at) {
-    await rq.update({
-      status: "clicked",
-      first_clicked_at: new Date().toISOString(),
-      click_count: (req.click_count ?? 0) + 1,
-    }).eq("id", req.id)
-  } else if (req.first_clicked_at) {
-    await rq.update({ click_count: (req.click_count ?? 1) + 1 }).eq("id", req.id)
+  // Only count human-looking traffic as a click. Bots, link scanners, and link
+  // previews from email/slack/whatsapp still see the review page but don't
+  // update status or click_count.
+  if (!isBot) {
+    type ChainableUpdate = { update: (v: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } }
+    const rq = supabase.from("review_requests") as unknown as ChainableUpdate
+    if (req.status !== "clicked" && !req.first_clicked_at) {
+      await rq.update({
+        status: "clicked",
+        first_clicked_at: new Date().toISOString(),
+        click_count: (req.click_count ?? 0) + 1,
+      }).eq("id", req.id)
+    } else if (req.first_clicked_at) {
+      await rq.update({ click_count: (req.click_count ?? 1) + 1 }).eq("id", req.id)
+    }
   }
 
   return (
@@ -93,6 +105,11 @@ export default async function TrackingRedirectPage({ params }: Params) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-3">
+          {isBot && (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Bot className="h-3 w-3" /> Automated preview — your click isn&apos;t counted.
+            </p>
+          )}
           <Button asChild size="lg" className="w-full sm:w-auto">
             <a href={business.google_review_url} target="_blank" rel="noopener noreferrer">
               Open Google Reviews <ExternalLink className="ml-2 h-4 w-4" />

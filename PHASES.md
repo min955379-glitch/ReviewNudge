@@ -138,23 +138,30 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 5: Tracking and reminders
-**Status:** In progress (tracking shipped in Phase 4; reminders + bot detection remaining)
+**Status:** Completed
 
 **Checklist:**
 - [x] `/r/[code]` public route: look up code server-side, log click, set first_clicked_at, increment click_count, update status to 'clicked'
-- [x] Click redirects to the business's Google review URL (open in new tab with explicit button to avoid auto-redirect quirks with mail scanners)
-- [x] Invalid code → friendly fallback page
-- [x] `/unsubscribe/[token]` route: HMAC-signed token, confirmation page, `POST /api/unsubscribe/[token]` RFC 8058 one-click
-- [ ] Bot/scanner detection (basic user-agent check before counting clicks)
-- [ ] `POST /api/cron/reminders` protected by `CRON_SECRET`
-- [ ] Reminder logic: status='sent', not clicked, no reminder yet, sent_at > 3 days ago
-- [ ] Send reminder email once; set `reminder_sent_at`
+- [x] Click page shows a friendly CTA pointing to the business's Google review URL (opens in new tab) rather than auto-redirecting, so mail scanners don't inflate counts
+- [x] Bot/scanner detection: user-agent matching against a well-known bot/preview/scanner list (WhatsApp, Slack, Teams, Telegram, Facebook, Twitter/LinkedIn bots, curl/wget/python-requests, Googlebot/Ahrefs/Semrush, monitoring/uptime agents, headless browsers); bots see the page but clicks are not counted
+- [x] Invalid code → friendly "Link not found" card
+- [x] `/unsubscribe/[token]` route: HMAC-signed one-click unsubscribe, permanent record (`unsubscribed=true`)
+- [x] `POST /api/unsubscribe/[token]` RFC-8058 one-click endpoint
+- [x] `POST /api/cron/reminders` protected by `Authorization: Bearer <CRON_SECRET>`
+- [x] Reminder logic: `status='sent'`, `first_clicked_at IS NULL`, `reminder_sent_at IS NULL`, `manually_marked_reviewed=false`, `sent_at` older than 3 days; also re-checks customer consent/unsubscribed/email right before sending; batches at most 500 per invocation
+- [x] Reminder email uses the business's reminder template (falls back to request template) and the same tracking short_code; sets `reminder_sent_at` on success so it's not retried
+- [x] 200 ms spacing between reminder sends to stay under provider burst limits
+- [x] Vercel Cron config (`vercel.json`) schedules `/api/cron/reminders` hourly (`0 * * * *`)
+- [x] Graceful skip when Resend or Supabase service role isn't configured (returns 200/500 with helpful error rather than crashing)
 
 **Done when:**
-- [x] Clicking an email link logs the click and offers a clear button to Google
-- [x] Clicking after first visit still offers the link (and increments click_count)
-- [x] Unsubscribing works and blocks future emails
-- Cron job sends exactly one reminder after 3 days to non-clickers; clickers get none
+- [x] Clicking an email link from a real browser logs the click and shows the CTA page
+- [x] Clicking from a bot/preview UA still loads the page but does NOT mark the request as clicked
+- [x] Clicking after first visit still shows the CTA (and increments click_count for humans)
+- [x] Unsubscribing works via both the link page and the POST one-click endpoint, and blocks future emails
+- [x] The cron endpoint is protected by CRON_SECRET (401 without/with wrong token)
+- [x] Reminder query correctly targets 3-day-old sent/unclicked/unreminded requests and marks `reminder_sent_at` after send
+- [x] `npm run build` and `npm run lint` pass cleanly; dev server returns 200 on public routes and 401 on unauthenticated cron
 
 ---
 

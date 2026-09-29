@@ -24,7 +24,7 @@ Local businesses live or die by their Google reviews, but asking every customer 
 
 ## Current functionality
 
-> **Status: Phase 4 (Sending emails) complete.**
+> **Status: Phase 5 (Tracking and reminders) complete.**
 
 - Next.js 16 App Router app with TypeScript + Tailwind CSS v4
 - Supabase auth wired up (email/password + Google OAuth ready)
@@ -46,11 +46,14 @@ Local businesses live or die by their Google reviews, but asking every customer 
 - **Public tracking page (/r/[code]):** marks click, increments click_count, shows a friendly CTA pointing to the business's Google review URL
 - **Public unsubscribe page (/unsubscribe/[token]):** confirms the opt-out and permanently marks the customer unsubscribed
 - Dashboard with real 30-day stats (sent count, click rate, clicks, manually marked reviews), recent activity, and a banner warning when Resend env vars aren't configured
+- **Bot/scanner filtering** on `/r/[code]`: a UA regex ignores known bots, crawlers, email link previews (WhatsApp/Slack/Teams etc.), HTTP libraries (curl/wget), and monitoring agents — they see the page but don't inflate click counts.
+- **Automatic 3-day reminders**: `POST /api/cron/reminders` (protected by `CRON_SECRET`), scheduled hourly via `vercel.json`, finds sent/unclicked/unreminded requests older than 3 days, sends the reminder template, stamps `reminder_sent_at` so only one reminder is ever sent; re-checks consent/unsubscribed right before send; throttles at 200ms between emails.
 - Server-side enforcement: ownership checks, RLS, unsubscribed blocking, duplicate detection, Zod validation on all inputs
 - Database migrations `00001_initial_schema.sql` + `00002_public_tracking.sql` with RLS policies for public click/unsubscribe endpoints
-- Full build and lint pass; dev server runs out of the box; routes return 200
+- Vercel cron config at `vercel.json` (hourly schedule)
+- Full build and lint pass; dev server runs out of the box; routes return 200; cron returns 401 without auth
 
-**Not yet implemented:** automatic 3-day reminders (Phase 5), click bot filtering, billing, final landing page.
+**Not yet implemented:** billing, final marketing landing page, 30-day chart on dashboard.
 
 ## Technology stack
 
@@ -152,9 +155,9 @@ Email deliverability requires domain verification with Resend (SPF, DKIM, DMARC 
 
 ## Current development status
 
-- **Phase:** 4 (Sending emails) — Complete
-- **Next phase:** Phase 5 — Tracking polish + automatic 3-day reminders (cron job, bot filtering)
-- App compiles, runs, and passes lint/build. Auth, onboarding, settings, customers, templates, requests, tracking, and unsubscribe flows are built. End-to-end email delivery requires a Resend API key + verified sending domain, and end-to-end DB flows require Supabase credentials with both migrations applied.
+- **Phase:** 5 (Tracking and reminders) — Complete
+- **Next phase:** Phase 6 — Dashboard polish (30-day chart, quicker send flow)
+- App compiles, runs, and passes lint/build. Auth, onboarding, settings, customers, templates, requests, sending, tracking, click filtering, unsubscribe, and the hourly reminder cron are all built. End-to-end email delivery requires a Resend API key + verified sending domain; live cron execution requires deploying to Vercel with `CRON_SECRET` set; end-to-end DB flows require Supabase credentials with both migrations applied.
 
 ## Important limitations
 

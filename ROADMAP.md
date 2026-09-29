@@ -55,21 +55,28 @@ Last updated: 2026-09-29
 - Dashboard "Send a request" CTA links to Customers; Templates quick-link added
 - `.env.example` lists `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS`, `UNSUBSCRIBE_SIGNING_SECRET`
 
+### Phase 5: Tracking and reminders ✓
+- Bot/scanner detection on `/r/[code]`: UA regex matching for known bots, crawlers, link previews (WhatsApp/Slack/Teams/Telegram/Facebook/Twitter/LinkedIn), HTTP libraries (curl/wget/python-requests), monitoring/uptime agents, headless browsers. Bots see the CTA page but clicks are not counted; a small "Automated preview" notice is shown.
+- `POST /api/cron/reminders` protected by `Authorization: Bearer <CRON_SECRET>` (401 on missing/bad token; structured JSON result on success; graceful error when credentials are missing).
+- Reminder engine in `src/lib/cron/send-reminders.ts` (`runReminderCron`): finds `review_requests` with `status='sent'`, not clicked, no reminder yet, not manually reviewed, `sent_at` ≥ 3 days old (500-row cap per run). Re-checks customer eligibility right before send, groups by business to fetch templates once, uses the reminder template (falling back to request), throttles sends at 200ms intervals, and stamps `reminder_sent_at` on success so the row isn't picked up again.
+- Reminders reuse the original short_code tracking link so the same link keeps working; exactly one reminder is ever sent per request.
+- `vercel.json` schedules `/api/cron/reminders` hourly (`0 * * * *`).
+- Graceful no-op (returns structured error, no crash) when Supabase service-role or Resend credentials are missing.
+
 ---
 
 ## In Progress
 
-(None actively in development — Phase 4 just wrapped.)
+(None — Phase 5 just wrapped.)
 
 ---
 
 ## Next
 
-### Phase 5: Tracking + reminders (remaining work)
-- Bot/scanner user-agent filtering on `/r/[code]` (so link scanners don't inflate click counts)
-- `POST /api/cron/reminders` protected by `CRON_SECRET`
-- Reminder logic: `status='sent'`, not clicked, no reminder yet, `sent_at` > 3 days ago
-- Send reminder email once; set `reminder_sent_at`
+### Phase 6: Dashboard polish
+- 30-day requests chart (line chart of sends per day)
+- Faster quick-add customer flow (target <10 seconds)
+- Optional reminder-sent stat card
 
 ---
 
@@ -78,8 +85,6 @@ Last updated: 2026-09-29
 ### Phase 6: Dashboard polish
 - 30-day requests chart
 - Faster quick-add customer flow (target <10 seconds)
-
-### Phase 7: Billing
 
 ### Phase 7: Billing
 - Plan constants and server-side limit enforcement
