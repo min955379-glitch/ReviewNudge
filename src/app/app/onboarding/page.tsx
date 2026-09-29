@@ -1,25 +1,94 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { redirect } from "next/navigation"
+import type { Database } from "@/lib/supabase/database.types"
+import { Step1Form } from "./step-1-form"
+import { Step2Form } from "./step-2-form"
+import { Step3Form } from "./step-3-form"
 
-export default function OnboardingPage() {
+type Business = Database["public"]["Tables"]["businesses"]["Row"]
+type Template = { subject: string; body: string }
+
+function Guard({ step }: { step: number }) {
   return (
-    <div className="mx-auto max-w-xl">
-      <Card>
-        <CardHeader>
-          <CardTitle>Set up your business</CardTitle>
-          <CardDescription>
-            Welcome! Let&apos;s get you set up to start sending review requests.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Badge variant="secondary">Coming in Phase 2</Badge>
-          <p className="text-sm text-muted-foreground">
-            The 3-step onboarding wizard (business info → Google review link → email
-            template preview) will be built in Phase 2. For now, no businesses exist yet
-            — database migrations are being set up as part of Phase 1.
-          </p>
-        </CardContent>
-      </Card>
+    <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
+      <p>Configure Supabase to start onboarding.</p>
+      <p className="mt-1 text-xs">Step {step} will be available after setup.</p>
     </div>
+  )
+}
+
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ step?: string }>
+}) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    const sp = await searchParams
+    return <Guard step={Number(sp.step) || 1} />
+  }
+
+  const { createSupabaseServerClient } = await import("@/lib/supabase")
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
+
+  const bizResult = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("owner_id", user.id)
+    .maybeSingle()
+  const business = bizResult.data as Business | null
+
+  let requestTemplate: Template | null = null
+  if (business) {
+    const tplResult = await supabase
+      .from("message_templates")
+      .select("subject, body")
+      .eq("business_id", business.id)
+      .eq("kind", "request")
+      .maybeSingle()
+    if (tplResult.data) requestTemplate = tplResult.data as Template
+  }
+
+  const sp = await searchParams
+
+  let maxReachable = 1
+  if (business && business.name) maxReachable = 2
+  if (business && business.google_review_url) maxReachable = 3
+
+  const urlStep = Number(sp.step)
+  const current =
+    !Number.isNaN(urlStep) && urlStep >= 1 && urlStep <= maxReachable ? urlStep : maxReachable
+
+  if (!sp.step || Number.isNaN(urlStep) || urlStep !== current) {
+    redirect(`/app/onboarding?step=${current}`)
+  }
+
+  if (current === 1) {
+    return (
+      <Step1Form
+        defaultName={business?.name ?? ""}
+        defaultContactLine={business?.contact_line ?? ""}
+        defaultTimezone={business?.timezone ?? "Europe/London"}
+      />
+    )
+  }
+  if (current === 2) {
+    return (
+      <Step2Form
+        defaultGoogleReviewUrl={business?.google_review_url ?? ""}
+        defaultReplyToEmail={business?.reply_to_email ?? (user.email ?? "")}
+      />
+    )
+  }
+  return (
+    <Step3Form
+      businessName={business!.name}
+      defaultSubject={requestTemplate?.subject ?? ""}
+      defaultBody={requestTemplate?.body ?? ""}
+      googleReviewUrl={business!.google_review_url}
+      ownerEmail={user.email ?? ""}
+    />
   )
 }

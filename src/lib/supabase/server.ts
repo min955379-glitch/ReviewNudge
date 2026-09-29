@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { Database } from "./database.types"
 
-function ensureEnv() {
+function ensurePublicEnv() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     throw new Error(
       "Supabase environment variables are not set. Copy .env.example to .env.local and fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
@@ -10,8 +10,13 @@ function ensureEnv() {
   }
 }
 
+/**
+ * Create a Supabase server client (anon key, respects RLS).
+ * The return type uses createServerClient's own inference so that chained
+ * `.from("table")` calls are fully typed.
+ */
 export async function createSupabaseServerClient() {
-  ensureEnv()
+  ensurePublicEnv()
   const cookieStore = await cookies()
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,7 +33,7 @@ export async function createSupabaseServerClient() {
             })
           } catch {
             // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing sessions.
+            // This can be ignored when middleware refreshes sessions.
           }
         },
       },
@@ -55,7 +60,7 @@ export async function createSupabaseServiceClient() {
           return cookieStore.getAll()
         },
         setAll() {
-          // Service role doesn't need cookies; no-op.
+          // no-op; service role does not rely on cookies
         },
       },
     }

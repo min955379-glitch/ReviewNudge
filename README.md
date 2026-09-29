@@ -24,19 +24,23 @@ Local businesses live or die by their Google reviews, but asking every customer 
 
 ## Current functionality
 
-> **Status: Phase 1 (Foundation) complete.**
+> **Status: Phase 2 (Business setup) complete.**
 
 - Next.js 16 App Router app with TypeScript + Tailwind CSS v4
 - Supabase auth wired up (email/password + Google OAuth ready)
 - Route protection via middleware
 - Responsive app shell with sidebar navigation
 - Login, signup, forgot-password pages
-- Dashboard with stat card placeholders
+- **3-step onboarding wizard:** business info → Google review link (validated) → email template with live preview
+- **Settings page:** edit business name, contact line, Google review link, reply-to email
+- Default email templates seeded automatically when a business is created
+- Email rendering engine (variables, HTML with CTA button, plain text, footer)
+- Dashboard with stat card placeholders (redirects to onboarding until setup is complete)
 - Database migration for all tables with RLS
-- Placeholder pages for all planned routes
+- Placeholder pages for routes coming in later phases
 - Full build and lint pass; dev server runs out of the box
 
-**Not yet implemented:** onboarding/business setup, customer management, email sending, tracking, reminders, billing, final landing page.
+**Not yet implemented:** customer management, CSV import, email sending (Resend), tracking links, reminders, billing, final landing page.
 
 ## Technology stack
 
@@ -138,9 +142,9 @@ Email deliverability requires domain verification with Resend (SPF, DKIM, DMARC 
 
 ## Current development status
 
-- **Phase:** 1 (Foundation) — Complete
-- **Next phase:** Phase 2 — Business setup (onboarding wizard + settings page)
-- App compiles, runs, and passes lint/build. Auth and database are wired up but require Supabase credentials to use end-to-end.
+- **Phase:** 2 (Business setup) — Complete
+- **Next phase:** Phase 3 — Customers (add/list/search/delete, CSV import)
+- App compiles, runs, and passes lint/build. Onboarding and settings forms are built; auth, onboarding, and settings flows require Supabase credentials to exercise end-to-end. Email sending (Resend) comes in Phase 4.
 
 ## Important limitations
 

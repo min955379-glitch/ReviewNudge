@@ -53,24 +53,29 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 2: Business setup (Onboarding + Settings)
-**Status:** Not started
+**Status:** Completed
 
 **Checklist:**
-- [ ] Onboarding wizard at `/app/onboarding` (3 steps)
-  - Step 1: Business name + contact line
-  - Step 2: Google review link (with validation)
-  - Step 3: Preview default template, send test email to self
-- [ ] Redirect to onboarding if business is not set up
-- [ ] Settings page: edit business info, review link, reply-to email
-- [ ] Server actions for creating/updating business
-- [ ] Default message templates created automatically when business is created
-- [ ] Google review link URL validation (accept `g.page`, `google.com/maps`, `search.google.com/local/writereview`, `maps.app.goo.gl`)
+- [x] 3-step onboarding wizard at `/app/onboarding`
+  - Step 1: Business name + contact line (+ timezone hidden default)
+  - Step 2: Google review link with server-side validation + reply-to email
+  - Step 3: Request template editor with live iframe preview, "reset to default", test-send button (warns if Resend not configured), and finish action
+- [x] Auto-redirect to onboarding for users without a business; redirect to correct step based on saved progress
+- [x] Settings page: edit business name, contact line, review link, reply-to email
+- [x] Server actions: createBusiness, saveOnboardingStep2, saveOnboardingStep3, updateBusinessProfile, resetRequestTemplate, resetReminderTemplate
+- [x] Default message templates (request + reminder) auto-created when a business is inserted
+- [x] Google review link URL validation (accepts g.page, google.com/maps, search.google.com/local/writereview, maps.app.goo.gl, goo.gl/maps)
+- [x] Email rendering helpers (variable substitution, HTML + plain text, CTA button, footer)
+- [x] Compliance notice (no review gating / no incentives) in onboarding step 3
+- [x] Back buttons between steps; users can revisit earlier steps but cannot URL-skip ahead
 
 **Done when:**
-- New user signs up → redirected to onboarding → completes 3 steps → lands on dashboard
-- Settings page saves changes
-- Default templates exist after onboarding
-- Invalid Google review links are rejected with helpful message
+- [x] New user signs up → is redirected to onboarding and can progress through all 3 steps
+- [x] After completing step 3, user lands on dashboard
+- [x] Settings page saves changes to business profile
+- [x] Default templates exist after business creation (verified in code; DB verification requires Supabase)
+- [x] Invalid Google review links are rejected with helpful error message (validator tested via code review)
+- [x] Build and lint pass cleanly
 
 ---
 

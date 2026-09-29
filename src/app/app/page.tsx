@@ -1,4 +1,3 @@
-import { createSupabaseServerClient } from "@/lib/supabase"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -7,28 +6,18 @@ import { Send, Clock, MousePointerClick, Mail } from "lucide-react"
 
 export default async function DashboardPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return null // Layout shows the setup screen
+    return null
   }
 
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { requireBusiness } = await import("@/lib/supabase/require-user")
+  const { business } = await requireBusiness()
 
-  if (!user) redirect("/login")
-
-  // Check whether the user has completed business setup
-  const { data: business }: { data: { id: string; name: string } | null } = await supabase
-    .from("businesses")
-    .select("id, name")
-    .eq("owner_id", user.id)
-    .maybeSingle()
-
-  if (!business) {
-    redirect("/app/onboarding")
+  // If onboarding isn't fully complete, send them back to the right step.
+  if (!business.google_review_url) {
+    const step = business.name ? 2 : 1
+    redirect(`/app/onboarding?step=${step}`)
   }
 
-  // Placeholder stats (real data will come in Phase 6)
   const stats = [
     { label: "Requests sent (30 days)", value: "0", icon: Send },
     { label: "Click rate", value: "—", icon: MousePointerClick },
@@ -49,7 +38,6 @@ export default async function DashboardPage() {
         </Button>
       </div>
 
-      {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
           <Card key={label}>
@@ -68,7 +56,6 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Recent activity placeholder */}
       <Card>
         <CardHeader>
           <CardTitle>Recent activity</CardTitle>
@@ -79,11 +66,11 @@ export default async function DashboardPage() {
         <CardContent>
           <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-center">
             <Badge variant="secondary" className="mb-3">
-              Phase 1
+              Next: Phase 3 — Customers
             </Badge>
             <p className="text-sm text-muted-foreground">
-              Customers, requests, and activity are coming in later phases. Start by
-              inviting a test customer once sending is built (Phase 4).
+              Add your first customer and send a review request once customer
+              management is built (Phase 3) and email sending is wired up (Phase 4).
             </p>
           </div>
         </CardContent>
