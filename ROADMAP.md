@@ -74,7 +74,19 @@ Last updated: 2026-09-29
 
 ## Next
 
-### Phase 9: Hardening and launch
+### Launch verification (manual, against live services)
+- Run `bash scripts/verify-anon-rls.sh` against the production Supabase project (must exit 0).
+- Run the SQL from `bash scripts/verify-rls-isolation.sh` against production with two real test accounts (negative queries must return 0 rows).
+- End-to-end email test: add yourself as a customer, send a request, click the link, unsubscribe — verify status transitions and the unsubscribed flag.
+- Polar webhook test: complete a test checkout (use Sandbox for staging), confirm `businesses.plan` flips to `pro` and the quota meter shows 300.
+- Trigger the cron via `/api/cron/reminders` with `CRON_SECRET` and confirm it returns structured JSON without errors.
+- Manual 375px mobile pass of landing page, onboarding, customers, and dashboard.
+
+### Post-launch (nice-to-haves)
+- Replace the in-memory rate limiter with Upstash/Redis for multi-instance consistency.
+- Run Next.js 16's `middleware-to-proxy` codemod when ready.
+- Add branded logo/favicon assets.
+- Seed/demo data script.
 
 ---
 
@@ -121,10 +133,11 @@ Last updated: 2026-09-29
 
 ## Known Issues
 
-- **End-to-end flows require configured Supabase + Resend projects** — code for Phases 1–5 is built but can only be smoke-tested in this sandbox without real credentials and the three migrations applied.
-- **Two-account RLS isolation test not yet run** — must be verified against a live Supabase project before launch (separate test: create two accounts, add a customer/request as account A, confirm account B cannot read/write it via the API or UI). Moved forward from Phase 9 so it's visible now.
-- **Billing not integrated yet** (Phase 7). The Free-plan 10-emails/month quota is already enforced server-side on initial sends, resends, bulk sends, and reminders; Pro/Business plan limits will be enforced once billing is wired up.
-- **No logo/branding assets** — using simple lucide icon marks.
-- **Next.js 16 middleware deprecation warning** — works now; codemod available (`npx @next/codemod@canary middleware-to-proxy .`).
+- **End-to-end flows require configured Supabase + Resend projects** — code is built but can only be smoke-tested in this sandbox without real credentials and all five migrations applied.
+- **Two-account RLS isolation test not yet run** — must be verified against a live Supabase project before launch. Use `scripts/verify-rls-isolation.sh` which prints a parameterized SQL template for the Supabase SQL Editor (positive + negative checks for customers, review_requests, and businesses, plus an UPDATE/INSERT attempt).
+- **Billing (Polar) is wired up but not live-verified** — create a Polar account, two recurring products, and a webhook pointing to `/api/webhooks/billing`; the webhook signature verification + plan-sync logic is implemented, and quotas are already enforced from `businesses.plan`.
+- **No logo/branding assets** — using simple Lucide icon marks + a generated SVG app icon; replace with real brand assets before launch.
+- **Next.js 16 middleware deprecation warning** — `middleware.ts` still works; codemod available (`npx @next/codemod@canary middleware-to-proxy .`).
 - **CSV column mapping is auto-detected**, not user-facing — covers common headers; can add manual mapping later if needed.
+- **Rate limiter is in-memory** — works well enough to blunt abuse on a single Vercel instance; for production scale consider Upstash/Redis (the rate-limit helper is isolated so swapping backends is a single-file change).
 - **Resend account + verified sending domain** required for real email delivery in production.

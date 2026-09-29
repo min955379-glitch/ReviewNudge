@@ -47,10 +47,10 @@ Local businesses live or die by their Google reviews, but asking every customer 
 - **Public unsubscribe page (/unsubscribe/[token]):** confirms the opt-out and permanently marks the customer unsubscribed
 - Dashboard with real 30-day stats (sent count, click rate, clicks, manually marked reviews), recent activity, and a banner warning when Resend env vars aren't configured
 - **Bot/scanner filtering** on `/r/[code]`: a UA regex ignores known bots, crawlers, email link previews (WhatsApp/Slack/Teams etc.), HTTP libraries (curl/wget), and monitoring agents — they see the page but don't inflate click counts.
-- **Automatic 3-day reminders**: `POST /api/cron/reminders` (protected by `CRON_SECRET`), scheduled hourly via `vercel.json`, finds sent/unclicked/unreminded requests older than 3 days, sends the reminder template, stamps `reminder_sent_at` so only one reminder is ever sent; re-checks consent/unsubscribed right before send; throttles at 200ms between emails.
+- **Automatic 3-day reminders**: `POST /api/cron/reminders` (protected by `CRON_SECRET`), scheduled daily at 09:00 UTC via `vercel.json` (works on Vercel Hobby, which rejects hourly crons), finds sent/unclicked/unreminded requests older than 3 days, sends the reminder template, stamps `reminder_sent_at` so only one reminder is ever sent; re-checks consent/unsubscribed right before send; throttles at 200ms between emails.
 - Server-side enforcement: ownership checks, RLS, unsubscribed blocking, duplicate detection, Zod validation on all inputs
 - Database migrations `00001_initial_schema.sql` + `00002_public_tracking.sql` with RLS policies for public click/unsubscribe endpoints
-- Vercel cron config at `vercel.json` (hourly schedule)
+- Vercel cron config at `vercel.json` (daily 09:00 UTC schedule; Vercel Hobby supports only daily cron)
 - Full build and lint pass; dev server runs out of the box; routes return 200; cron returns 401 without auth
 
 **Not yet implemented:** billing, final marketing landing page, 30-day chart on dashboard.
@@ -138,8 +138,10 @@ If `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set, t
 bash scripts/verify-anon-rls.sh
 ```
 The script exits 0 only when `/rest/v1/businesses`, `/rest/v1/customers`, and `/rest/v1/review_requests` return 401/403 or an empty array for the anon key.
+
 3. Under Authentication → Providers, enable Email and (optionally) Google.
 4. Add your site URL (`http://localhost:3000`) to Authentication → URL Configuration → Redirect URLs, along with `http://localhost:3000/auth/callback`.
+5. **Cross-tenant isolation test (required before launch):** create two test accounts, run `bash scripts/verify-rls-isolation.sh` to print the SQL template, and execute it in the SQL Editor per the instructions. All negative queries must return 0 rows.
 
 ## How to run locally
 
@@ -172,11 +174,35 @@ Required Vercel environment variables (Project → Settings → Environment Vari
 - `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS`
 - `CRON_SECRET` — a long random string (e.g. `openssl rand -hex 32`). The daily cron call passes this as `Authorization: Bearer <CRON_SECRET>`; without it the cron returns 401.
 - `UNSUBSCRIBE_SIGNING_SECRET` — a long random string used to sign unsubscribe tokens. Rotating it invalidates existing unsubscribe links.
-- Billing variables are not required until Phase 7.
+- **Polar billing (enable to accept paid signups):**
+  - `POLAR_ACCESS_TOKEN` — Polar organization access token (use Sandbox for preview deployments, Production for your live site)
+  - `POLAR_WEBHOOK_SECRET` — signing secret from the Polar webhook endpoint
+  - `POLAR_PRO_PRODUCT_ID`, `POLAR_BUSINESS_PRODUCT_ID` — product IDs for your two paid recurring plans
+  - In Polar, create a webhook pointing to `https://<your-domain>/api/webhooks/billing` subscribed to: `checkout.updated`, `subscription.active`, `subscription.updated`, `subscription.canceled`, `subscription.revoked`.
 
-The `vercel.json` in the repo root schedules `/api/cron/reminders` to run once daily at 09:00 UTC (`0 9 * * *`), which works on Vercel Hobby (Vercel Hobby rejects hourly cron schedules).
+### Security baseline included
+- Strict security headers (CSP, HSTS, X-Frame-Options: DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) applied globally via `next.config.ts`.
+- Per-IP rate limiting in middleware:
+  - Auth endpoints (login/signup/forgot/callback): 20 req/min/IP
+  - Click tracking `/r/[code]`: 60 req/min/IP
+  - Unsubscribe `/api/unsubscribe/[token]`: 30 req/min/IP
+  - Cron `/api/cron/reminders`: 10 req/min/IP (secrets still required)
+  - Webhooks `/api/webhooks/billing`: 60 req/min/IP
+- Anon role has zero access to `businesses`/`customers`/`review_requests`; public routes use the service-role client with lookup-by-token only.
+- All server actions and cron routes are authenticated; the service-role key is never exposed to the client.
 
-Email deliverability requires domain verification with Resend — add the SPF, DKIM, and DMARC records Resend provides for your sending domain before going live.
+### Pre-launch checklist
+1. Migrations 00001–00005 applied in order.
+2. `bash scripts/verify-anon-rls.sh` exits 0 against your Supabase project.
+3. Cross-tenant RLS test (`scripts/verify-rls-isolation.sh`) passes with two test accounts.
+4. Resend sending domain verified (SPF/DKIM/DMARC green in Resend dashboard).
+5. `CRON_SECRET` set; trigger `/api/cron/reminders` with the secret once to confirm it returns a structured JSON response.
+6. Polar webhook delivery confirmed (send a test checkout; verify `businesses.plan` flips to `pro` after checkout.updated fires).
+7. Smoke test the unsubscribe link from a real email; confirm the customer's `unsubscribed` flag flips to true.
+8. Visit `/pricing`, `/privacy`, `/terms`, `/signup`, `/login`, `/app`, `/r/<bad-code>`, and a nonexistent path to confirm error pages render.
+
+### Email domain verification (required for production)
+Email deliverability requires domain verification with Resend — add the SPF, DKIM, and DMARC records Resend provides for your sending domain before going live. Until your domain is verified, Resend only sends to the email address you signed up with, and mail to other addresses will bounce.
 
 ## Current development status
 

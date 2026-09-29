@@ -232,19 +232,25 @@ Polar is our billing provider (polar.sh). All billing integration is behind env 
 ---
 
 ## Phase 9: Hardening and launch
-**Status:** Not started
+**Status:** Built, not yet verified end-to-end against live services
 
 **Checklist:**
-- [ ] RLS cross-account test (two separate accounts, confirm no data leakage)
-- [ ] Rate limiting (per-business sends, per-IP on auth and /r/[code])
-- [ ] Security headers (CSP, X-Frame-Options, Referrer-Policy)
-- [ ] Security audit (no secrets exposed, all inputs validated)
-- [ ] README finalized (setup, env vars, email domain verification, deployment)
-- [ ] Deployment guide for Vercel
-- [ ] Seed/demo data script (optional)
-- [ ] Final bug pass
+- [x] Security headers in `next.config.ts` (CSP with Supabase+Resend connect-src, HSTS, X-Frame-Options: DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-XSS-Protection)
+- [x] Per-IP in-memory rate limiting in middleware (20/min auth, 60/min click tracking, 30/min unsubscribe, 10/min cron, 60/min webhooks), returning 429 with `Retry-After`
+- [x] Security audit: service-role key and Polar/Resend/CRON/UNSUBSCRIBE secrets used only on the server; client bundle contains only `NEXT_PUBLIC_*` vars; Zod schemas validate all server-action inputs; unsubscribe tokens are HMAC-signed.
+- [x] README finalized: full env-var list, all 5 migrations, deployment steps for Vercel, Polar webhook setup, pre-launch checklist, domain verification notes.
+- [x] RLS cross-account verification script: `scripts/verify-rls-isolation.sh` prints a parameterized SQL template with positive + negative checks (read, update, insert across business IDs) to run in the Supabase SQL Editor using `SET request.jwt.claims.sub`.
+- [x] Cron schedule, auth, public tracking, and unsubscribe routes re-verified against hardened middleware.
+- [ ] **Manual** verification still required against live services before launch:
+  - Run `scripts/verify-anon-rls.sh` against the real Supabase project.
+  - Run the `verify-rls-isolation.sh` SQL against the real project with two test accounts.
+  - End-to-end Resend test (send to yourself, click link, unsubscribe).
+  - Polar webhook test (real checkout → plan flips to pro → quota increases).
+  - Manual 375px mobile QA pass.
+- [ ] Optional: seed/demo data script, production logo assets, Next.js 16 `middleware → proxy` codemod migration (current middleware works).
 
 **Done when:**
 - All acceptance criteria in PRD.md are met
 - App can be deployed to Vercel with documented steps
+- RLS isolation test passes against a live Supabase project
 - Security checklist in RULES.md is fully checked

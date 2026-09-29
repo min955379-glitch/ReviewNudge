@@ -164,16 +164,28 @@
   - New error pages: `src/app/not-found.tsx` (friendly 404), `src/app/error.tsx` (500 with reset).
   - Build + lint clean; smoke-tested production server: `/`, `/pricing`, `/privacy`, `/terms`, `/signup`, `/login`, `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest` all return 200; unknown path returns 404.
 
-## Next up
+- **Phase 9 (2026-09-29): Hardening and launch**
+  - Security headers added in `next.config.ts`: strict CSP (self + Supabase/Resend connect-src, no unsafe-eval for anything except script-src unsafe-inline/unsafe-eval which Next.js dev currently needs), HSTS (1y, includeSubDomains, preload), X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, Permissions-Policy denying camera/mic/geolocation/interest-cohort, plus no-store Cache-Control on /api/*.
+  - Per-IP in-memory rate limiter (`src/lib/rate-limit.ts`) integrated into `src/middleware.ts`:
+    - Auth endpoints (login/signup/forgot-password/auth/callback): 20 req/min/IP → 429 with Retry-After.
+    - Click tracking `/r/[code]`: 60 req/min/IP.
+    - Unsubscribe `/api/unsubscribe/[token]`: 30 req/min/IP.
+    - Cron `/api/cron/reminders`: 10 req/min/IP (still requires Bearer CRON_SECRET).
+    - Webhooks `/api/webhooks/billing`: 60 req/min/IP (Polar retries honored).
+  - Cross-tenant isolation test script `scripts/verify-rls-isolation.sh` added; prints a parameterized psql test that sets `request.jwt.claims.sub` to each user and verifies: customers/review_requests/businesses belonging to the other account return 0 rows, UPDATE of the other account's data affects 0 rows, INSERT into the other business throws an RLS violation, and a positive control confirms a user can see their own data.
+  - README fully updated: all 5 migrations listed, full env-var list (including Polar), deployment steps, security baseline included, 8-step pre-launch checklist, Resend domain verification note, corrected cron schedule (daily 09:00 UTC).
+  - Known Issues refreshed: billing marked wired-up-but-unverified; RLS isolation test now references the script; middleware deprecation, CSV auto-mapping, and in-memory rate limiter noted.
+  - PHASES.md and ROADMAP.md updated: Phase 9 marked built, with clear manual-verification items required before launch.
+  - Build + lint clean. Note: manual end-to-end verification against live Supabase/Resend/Polar is intentionally left as a launch step (can't be done in this sandbox without real credentials).
 
-**Phase 9: Hardening and launch**
-- Cross-account RLS isolation test (move from Known Issues once verified against live Supabase)
-- Rate limiting (per-business sends, per-IP on auth and /r/[code])
-- Security headers (CSP, X-Frame-Options, Referrer-Policy, HSTS)
-- Security audit pass (secrets not exposed; inputs validated; env vars not leaked to client)
-- Final README pass (deployment guide, email domain verification screenshots, Vercel setup)
-- Seed/demo data script (optional)
-- Manual 375px mobile QA pass
+## Up next (manual, requires real credentials)
+
+- Run `bash scripts/verify-anon-rls.sh` against production Supabase.
+- Run the SQL from `bash scripts/verify-rls-isolation.sh` with two test accounts.
+- Send a real email to yourself, click link, unsubscribe, verify state transitions.
+- Complete a real Polar Sandbox checkout and verify plan flips to pro.
+- Manual 375px mobile pass.
+- After those pass, deploy to Vercel and launch.
 
 ## Open questions
 
