@@ -117,6 +117,7 @@ export async function sendTestTemplateEmail(_prev: TemplateState, formData: Form
       name: business.name,
       reply_to_email: business.reply_to_email,
       contact_line: business.contact_line,
+      mailing_address: (business as { mailing_address?: string }).mailing_address,
     },
     customerName: "you",
     subjectTpl: tpl.subject,

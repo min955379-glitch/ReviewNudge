@@ -5,7 +5,7 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 0: Project context files
-**Status:** Completed (initial setup)
+**Status:** Built, not yet verified against live Supabase and Resend (initial setup)
 
 **Checklist:**
 - [x] `PRD.md` created from master prompt
@@ -22,7 +22,7 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 1: Foundation
-**Status:** Completed
+**Status:** Built, not yet verified against live Supabase and Resend
 
 **Checklist:**
 - [x] Initialize Next.js project with TypeScript, App Router (Next.js 16.3.6)
@@ -53,7 +53,7 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 2: Business setup (Onboarding + Settings)
-**Status:** Completed
+**Status:** Built, not yet verified against live Supabase and Resend
 
 **Checklist:**
 - [x] 3-step onboarding wizard at `/app/onboarding`
@@ -80,7 +80,7 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 3: Customers
-**Status:** Completed
+**Status:** Built, not yet verified against live Supabase and Resend
 
 **Checklist:**
 - [x] Customers page at `/app/customers` with server-fetched list
@@ -105,7 +105,7 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 4: Sending emails
-**Status:** Completed
+**Status:** Built, not yet verified against live Supabase and Resend
 
 **Checklist:**
 - [x] `resend` package installed; `lib/email/send.ts` wraps `sendEmail()` + `sendReviewEmail()`
@@ -138,7 +138,7 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 5: Tracking and reminders
-**Status:** Completed
+**Status:** Built, not yet verified against live Supabase and Resend
 
 **Checklist:**
 - [x] `/r/[code]` public route: look up code server-side, log click, set first_clicked_at, increment click_count, update status to 'clicked'

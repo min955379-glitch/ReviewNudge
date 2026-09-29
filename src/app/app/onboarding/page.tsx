@@ -53,9 +53,11 @@ export default async function OnboardingPage({
 
   const sp = await searchParams
 
+  const hasMailingAddress =
+    !!business && !!((business as unknown as { mailing_address?: string }).mailing_address ?? "").trim()
   let maxReachable = 1
-  if (business && business.name) maxReachable = 2
-  if (business && business.google_review_url) maxReachable = 3
+  if (business && business.name && hasMailingAddress) maxReachable = 2
+  if (business && business.google_review_url && hasMailingAddress) maxReachable = 3
 
   const urlStep = Number(sp.step)
   const current =
@@ -70,6 +72,7 @@ export default async function OnboardingPage({
       <Step1Form
         defaultName={business?.name ?? ""}
         defaultContactLine={business?.contact_line ?? ""}
+        defaultMailingAddress={(business as (Business & { mailing_address?: string }) | null)?.mailing_address ?? ""}
         defaultTimezone={business?.timezone ?? "Europe/London"}
       />
     )

@@ -86,6 +86,7 @@ export async function createBusiness(_prev: StepState, formData: FormData): Prom
       name: parsed.data.name,
       google_review_url: "",
       contact_line: parsed.data.contact_line || null,
+      mailing_address: parsed.data.mailing_address,
       timezone: parsed.data.timezone,
       plan: "free",
     } as BizInsert)
@@ -165,6 +166,7 @@ export async function updateBusinessProfile(_prev: SettingsState, formData: Form
       google_review_url: parsed.data.google_review_url,
       reply_to_email: parsed.data.reply_to_email || null,
       contact_line: parsed.data.contact_line || null,
+      mailing_address: parsed.data.mailing_address,
       timezone: parsed.data.timezone,
     } as BizUpdate)
     .eq("id", business.id)

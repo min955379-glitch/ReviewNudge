@@ -24,7 +24,7 @@ Local businesses live or die by their Google reviews, but asking every customer 
 
 ## Current functionality
 
-> **Status: Phase 5 (Tracking and reminders) complete.**
+> **Status: Phases 1–5 built, not yet verified against live Supabase and Resend.**
 
 - Next.js 16 App Router app with TypeScript + Tailwind CSS v4
 - Supabase auth wired up (email/password + Google OAuth ready)
@@ -59,7 +59,7 @@ Local businesses live or die by their Google reviews, but asking every customer 
 
 | Layer | Choice |
 |---|---|
-| Framework | Next.js 14+ (App Router), TypeScript |
+| Framework | Next.js 16 (App Router), TypeScript |
 | Styling | Tailwind CSS + shadcn/ui |
 | Database & Auth | Supabase (Postgres, RLS, email + Google sign-in) |
 | Email | Resend (transactional) |
@@ -128,7 +128,10 @@ If `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set, t
 
 ### Database setup
 1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard).
-2. In the SQL Editor, run the migration at `supabase/migrations/00001_initial_schema.sql`.
+2. In the SQL Editor, run the migrations in order:
+   - `supabase/migrations/00001_initial_schema.sql` (tables, RLS, helpers)
+   - `supabase/migrations/00002_public_tracking.sql` (public read/update policies for click + unsubscribe pages)
+   - `supabase/migrations/00003_mailing_address.sql` (required `mailing_address` column on businesses)
 3. Under Authentication → Providers, enable Email and (optionally) Google.
 4. Add your site URL (`http://localhost:3000`) to Authentication → URL Configuration → Redirect URLs, along with `http://localhost:3000/auth/callback`.
 
@@ -149,15 +152,32 @@ npm run start    # Serve production build
 
 ## How to build and deploy
 
-> Coming after Phase 1. Deployment target: Vercel.
+Deployment target: **Vercel**.
 
-Email deliverability requires domain verification with Resend (SPF, DKIM, DMARC records in DNS) — full instructions will be provided here.
+```bash
+npm run build
+vercel --prod
+```
+
+Required Vercel environment variables (Project → Settings → Environment Variables):
+
+- `NEXT_PUBLIC_APP_URL` — your production URL (e.g. `https://reviewnudge.app`)
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS`
+- `CRON_SECRET` — a long random string (e.g. `openssl rand -hex 32`). The daily cron call passes this as `Authorization: Bearer <CRON_SECRET>`; without it the cron returns 401.
+- `UNSUBSCRIBE_SIGNING_SECRET` — a long random string used to sign unsubscribe tokens. Rotating it invalidates existing unsubscribe links.
+- Billing variables are not required until Phase 7.
+
+The `vercel.json` in the repo root schedules `/api/cron/reminders` to run once daily at 09:00 UTC (`0 9 * * *`), which works on Vercel Hobby (Vercel Hobby rejects hourly cron schedules).
+
+Email deliverability requires domain verification with Resend — add the SPF, DKIM, and DMARC records Resend provides for your sending domain before going live.
 
 ## Current development status
 
-- **Phase:** 5 (Tracking and reminders) — Complete
-- **Next phase:** Phase 6 — Dashboard polish (30-day chart, quicker send flow)
-- App compiles, runs, and passes lint/build. Auth, onboarding, settings, customers, templates, requests, sending, tracking, click filtering, unsubscribe, and the hourly reminder cron are all built. End-to-end email delivery requires a Resend API key + verified sending domain; live cron execution requires deploying to Vercel with `CRON_SECRET` set; end-to-end DB flows require Supabase credentials with both migrations applied.
+- **Phase:** 5 (Tracking + reminders + quota) — code complete, not yet verified end-to-end against live Supabase + Resend
+- **Next phase:** Phase 6 — Dashboard polish (30-day chart, quota meter, quicker send flow)
+- App compiles, runs, and passes lint/build. Auth, onboarding, settings, customers, templates, requests, sending, tracking, bot filtering, unsubscribe, CAN-SPAM mailing address, monthly free-plan quota (10 emails), and the daily reminder cron are all built. End-to-end email delivery requires a Resend API key + verified sending domain; live cron execution requires deploying to Vercel with `CRON_SECRET` set; end-to-end DB flows require Supabase credentials with all three migrations applied.
+- **Reminders count toward the monthly free-plan quota** (every delivered email, initial or reminder, is one send). Upgrade paths and enforcement for Pro/Business land in Phase 7.
 
 ## Important limitations
 
@@ -170,7 +190,7 @@ Email deliverability requires domain verification with Resend (SPF, DKIM, DMARC 
 
 ## Important compliance notes
 
-- Every email includes the business name, a contact line, and a one-click unsubscribe link.
+- Every email includes the business name, contact line, physical mailing address (required by CAN-SPAM), and a one-click unsubscribe link (both a web page and an RFC-8058 POST endpoint for `List-Unsubscribe-Post`).
 - Unsubscribes are respected permanently per email per business.
 - The consent checkbox ("This customer has done business with me and I have permission to contact them") is required before sending.
 - No rewards, discounts, or incentives for reviews are offered — this violates Google policy and FTC guidelines.

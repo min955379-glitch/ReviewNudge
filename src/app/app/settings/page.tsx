@@ -36,6 +36,7 @@ export default async function SettingsPage() {
           google_review_url: business.google_review_url,
           reply_to_email: business.reply_to_email ?? "",
           contact_line: business.contact_line ?? "",
+          mailing_address: (business as { mailing_address?: string }).mailing_address ?? "",
           timezone: business.timezone,
           plan: business.plan,
         }}

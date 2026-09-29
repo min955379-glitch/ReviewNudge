@@ -40,6 +40,7 @@ export default async function TemplatesPage() {
       <TemplatesClient
         businessName={business.name}
         contactLine={business.contact_line ?? undefined}
+        mailingAddress={(business as { mailing_address?: string }).mailing_address ?? undefined}
         reviewUrl={business.google_review_url}
         initialRequest={{
           subject: requestTpl?.subject ?? "",

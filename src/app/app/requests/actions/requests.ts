@@ -4,6 +4,7 @@ import { requireBusiness } from "@/lib/supabase/require-user"
 import { generateShortCode, signToken } from "@/lib/utils/crypto"
 import { sendReviewEmail } from "@/lib/email/send"
 import { sendRequestSchema, bulkSendSchema, markReviewedSchema } from "@/lib/validation/request"
+import { planLimit } from "@/lib/billing/plans"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Biz = Database["public"]["Tables"]["businesses"]["Row"]
@@ -16,6 +17,22 @@ type Qb = any
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || ""
+}
+
+/** Count emails sent by this business in the current 30-day rolling window. */
+async function countRecentSends(sb: Qb, businessId: string): Promise<number> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const res = await sb
+    .from("review_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .in("status", ["sent", "clicked"])
+    .gte("sent_at", since)
+  return (res.count as number) ?? 0
+}
+
+function quotaError(biz: Biz, used: number, limit: number): string {
+  return `You've reached your monthly limit of ${limit} emails on the Free plan (${used} sent). Upgrade to Pro to send more.`
 }
 
 async function getTemplates(sb: Qb, businessId: string): Promise<Record<string, Tpl>> {
@@ -91,6 +108,7 @@ async function createAndSendOne(
       name: business.name,
       reply_to_email: business.reply_to_email,
       contact_line: business.contact_line,
+      mailing_address: (business as Biz & { mailing_address?: string }).mailing_address,
     },
     customerName: customer.name,
     subjectTpl: tpl.subject,
@@ -134,6 +152,13 @@ export async function sendToOne(_prev: unknown, formData: FormData): Promise<Sen
   const customer = await getEligibleCustomer(sb, business, parsed.data.customer_id)
   if (!customer) return { error: "Customer is not eligible (missing email, unsubscribed, or no consent)." }
 
+  // Monthly quota check (Free plan: 10 emails / 30 days)
+  const limit = planLimit(business.plan)
+  if (limit !== null) {
+    const used = await countRecentSends(sb, business.id)
+    if (used >= limit) return { error: quotaError(business, used, limit) }
+  }
+
   const templates = await getTemplates(sb, business.id)
   const { error } = await createAndSendOne(sb, business, customer, templates)
   if (error) return { error }
@@ -171,19 +196,30 @@ export async function sendBulk(_prev: unknown, formData: FormData): Promise<Send
     }
   }
 
+  // Monthly quota (Free plan)
+  const limit = planLimit(business.plan)
+  let used = limit !== null ? await countRecentSends(sb, business.id) : 0
+
   const templates = await getTemplates(sb, business.id)
   let sent = 0
   let failed = 0
   let skipped = 0
   const errors: string[] = []
+  let quotaHit = false
 
   for (const id of ids) {
+    if (limit !== null && used >= limit) { quotaHit = true; skipped++; continue }
     const c = await getEligibleCustomer(sb, business, id)
     if (!c) { skipped++; continue }
     const { error } = await createAndSendOne(sb, business, c, templates)
-    if (error) { failed++; errors.push(`${c.name}: ${error}`) } else { sent++ }
-    // Small gap to stay under provider burst limits
+    if (error) { failed++; errors.push(`${c.name}: ${error}`) } else { sent++; if (limit !== null) used++ }
     await new Promise((r) => setTimeout(r, 150))
+  }
+
+  if (quotaHit && limit !== null) {
+    errors.push(
+      `Monthly limit of ${limit} emails reached on the Free plan (${used} sent). Upgrade to Pro to send more.`,
+    )
   }
 
   return {
@@ -204,6 +240,12 @@ export async function resendRequest(_prev: unknown, formData: FormData): Promise
   const reqRes = await sb.from("review_requests").select("*, customer:customers(*)").eq("id", requestId).eq("business_id", business.id).maybeSingle()
   const row = reqRes.data as (Req & { customer: Cust | null }) | null
   if (!row || !row.customer) return { error: "Request not found" }
+
+  const limit = planLimit(business.plan)
+  if (limit !== null) {
+    const used = await countRecentSends(sb, business.id)
+    if (used >= limit) return { error: quotaError(business, used, limit) }
+  }
 
   const templates = await getTemplates(sb, business.id)
   const { error } = await createAndSendOne(sb, business, row.customer, templates)

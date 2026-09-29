@@ -11,6 +11,7 @@ export interface Database {
           google_review_url: string
           reply_to_email: string | null
           contact_line: string | null
+          mailing_address: string
           timezone: string
           plan: "free" | "pro" | "business"
           created_at: string
@@ -22,6 +23,7 @@ export interface Database {
           google_review_url: string
           reply_to_email?: string | null
           contact_line?: string | null
+          mailing_address?: string
           timezone?: string
           plan?: "free" | "pro" | "business"
           created_at?: string
@@ -33,6 +35,7 @@ export interface Database {
           google_review_url?: string
           reply_to_email?: string | null
           contact_line?: string | null
+          mailing_address?: string
           timezone?: string
           plan?: "free" | "pro" | "business"
           created_at?: string

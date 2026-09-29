@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -23,6 +24,7 @@ interface Props {
     google_review_url: string
     reply_to_email: string
     contact_line: string
+    mailing_address: string
     timezone: string
     plan: string
   }
@@ -76,10 +78,29 @@ export function SettingsForm({ business, userEmail }: Props) {
               id="contact_line"
               name="contact_line"
               defaultValue={state?.values?.contact_line ?? business.contact_line}
-              placeholder="Address or phone number"
+              placeholder="Phone number or short contact line"
             />
             {state?.errors?.contact_line && (
               <p className="text-sm text-destructive">{state.errors.contact_line}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mailing_address">Physical mailing address *</Label>
+            <Textarea
+              id="mailing_address"
+              name="mailing_address"
+              required
+              rows={3}
+              defaultValue={state?.values?.mailing_address ?? business.mailing_address}
+              placeholder={"123 High Street\nLondon NW1 1AA\nUnited Kingdom"}
+              aria-invalid={!!state?.errors?.mailing_address}
+            />
+            <p className="text-xs text-muted-foreground">
+              Required by CAN-SPAM and other anti-spam laws — shown in every email footer.
+            </p>
+            {state?.errors?.mailing_address && (
+              <p className="text-sm text-destructive">{state.errors.mailing_address}</p>
             )}
           </div>
 

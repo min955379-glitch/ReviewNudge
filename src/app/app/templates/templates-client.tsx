@@ -22,22 +22,25 @@ type ActionRes = {
 interface Props {
   businessName: string
   contactLine?: string
+  mailingAddress?: string
   reviewUrl: string
   initialRequest: { subject: string; body: string }
   initialReminder: { subject: string; body: string }
   emailConfigured: boolean
 }
 
-const SAMPLE_VARS = (businessName: string, reviewUrl: string, contactLine?: string) => ({
+const SAMPLE_VARS = (businessName: string, reviewUrl: string, contactLine?: string, mailingAddress?: string) => ({
   customer_name: "Sam",
   business_name: businessName,
   review_link: reviewUrl,
   contact_line: contactLine,
+  mailing_address: mailingAddress,
 })
 
 export function TemplatesClient({
   businessName,
   contactLine,
+  mailingAddress,
   reviewUrl,
   initialRequest,
   initialReminder,
@@ -58,7 +61,7 @@ export function TemplatesClient({
   const [resetState, resetAction, resetPending] = useActionState<ActionRes, FormData>(resetTemplate, null)
   const [testState, testAction, testPending] = useActionState<ActionRes, FormData>(sendTestTemplateEmail, null)
 
-  const previewVars = SAMPLE_VARS(businessName, reviewUrl, contactLine)
+  const previewVars = SAMPLE_VARS(businessName, reviewUrl, contactLine, mailingAddress)
   const previewSubject = applyTemplate(current.subject || "(no subject)", previewVars)
   const previewHtml = renderHtml(current.subject || "", current.body || "", previewVars)
 

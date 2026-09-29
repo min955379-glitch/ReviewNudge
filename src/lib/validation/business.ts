@@ -42,6 +42,10 @@ export const businessProfileSchema = z.object({
     .optional()
     .or(z.literal("").transform(() => undefined)),
   contact_line: z.string().max(300).optional().or(z.literal("").transform(() => undefined)),
+  mailing_address: z
+    .string()
+    .min(5, "A physical mailing address is required (CAN-SPAM compliance).")
+    .max(500),
   timezone: z.string().min(1).default("Europe/London"),
 })
 
@@ -50,6 +54,7 @@ export type BusinessProfileInput = z.infer<typeof businessProfileSchema>
 export const onboardingStep1Schema = z.object({
   name: businessProfileSchema.shape.name,
   contact_line: businessProfileSchema.shape.contact_line,
+  mailing_address: businessProfileSchema.shape.mailing_address,
   timezone: businessProfileSchema.shape.timezone,
 })
 

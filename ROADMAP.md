@@ -75,19 +75,16 @@ Last updated: 2026-09-29
 
 ### Phase 6: Dashboard polish
 - 30-day requests chart (line chart of sends per day)
-- Faster quick-add customer flow (target <10 seconds)
+- Faster quick-add customer flow (target <10 seconds from dashboard)
+- Quota meter showing free-plan usage (e.g. 7/10) with upgrade prompt
 - Optional reminder-sent stat card
 
 ---
 
 ## Planned
 
-### Phase 6: Dashboard polish
-- 30-day requests chart
-- Faster quick-add customer flow (target <10 seconds)
-
 ### Phase 7: Billing
-- Plan constants and server-side limit enforcement
+- Plan constants and server-side limit enforcement (already enforced at 10/month on Free; needs to be tightened per-plan after billing integration)
 - Usage meter and upgrade prompts
 - Billing provider integration (Polar or Lemon Squeezy)
 - Checkout, webhook handling, customer portal link
@@ -99,7 +96,6 @@ Last updated: 2026-09-29
 - Final Privacy & Terms pages; mobile polish pass at 375px
 
 ### Phase 9: Hardening and launch
-- RLS cross-account security test (two real accounts)
 - Rate limiting (per-business sends, per-IP on auth and /r/[code])
 - Security headers (CSP, X-Frame-Options, Referrer-Policy)
 - Final README and Vercel deployment guide (SPF/DKIM/DMARC)
@@ -109,12 +105,10 @@ Last updated: 2026-09-29
 
 ## Known Issues
 
-- **End-to-end auth/database flows require a Supabase project** — code is complete but can't be fully exercised without credentials and migration applied.
-- **Test-send and real email sending not functional until Phase 4** — Resend integration is the next milestone.
-- **Billing not integrated yet** (Phase 7).
+- **End-to-end flows require configured Supabase + Resend projects** — code for Phases 1–5 is built but can only be smoke-tested in this sandbox without real credentials and the three migrations applied.
+- **Two-account RLS isolation test not yet run** — must be verified against a live Supabase project before launch (separate test: create two accounts, add a customer/request as account A, confirm account B cannot read/write it via the API or UI). Moved forward from Phase 9 so it's visible now.
+- **Billing not integrated yet** (Phase 7). The Free-plan 10-emails/month quota is already enforced server-side on initial sends, resends, bulk sends, and reminders; Pro/Business plan limits will be enforced once billing is wired up.
 - **No logo/branding assets** — using simple lucide icon marks.
-- **Requests, Templates, Tracking, Reminders are placeholders** — built in Phases 4 and 5.
 - **Next.js 16 middleware deprecation warning** — works now; codemod available (`npx @next/codemod@canary middleware-to-proxy .`).
-- **"Add and send"** checkbox on Add Customer dialog is informational until Phase 4.
 - **CSV column mapping is auto-detected**, not user-facing — covers common headers; can add manual mapping later if needed.
-- **Resend account + verified sending domain** needed for Phase 4.
+- **Resend account + verified sending domain** required for real email delivery in production.

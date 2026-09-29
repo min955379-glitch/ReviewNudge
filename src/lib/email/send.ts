@@ -67,6 +67,7 @@ export interface ReviewEmailPayload {
     name: string
     reply_to_email?: string | null
     contact_line?: string | null
+    mailing_address?: string | null
   }
   customerName: string
   subjectTpl: string
@@ -78,7 +79,7 @@ export interface ReviewEmailPayload {
 /**
  * Build + send a review email (request or reminder) with the proper templates,
  * variable substitution, plain-text + HTML rendering, List-Unsubscribe header,
- * and footer.
+ * and footer (including the business's physical mailing address for CAN-SPAM).
  */
 export async function sendReviewEmail(p: ReviewEmailPayload): Promise<SendEmailResult> {
   const vars: TemplateVars = {
@@ -87,6 +88,7 @@ export async function sendReviewEmail(p: ReviewEmailPayload): Promise<SendEmailR
     review_link: p.reviewLink,
     unsubscribe_link: p.unsubscribeLink,
     contact_line: p.business.contact_line ?? undefined,
+    mailing_address: p.business.mailing_address ?? undefined,
   }
   const subject = applyTemplate(p.subjectTpl, vars)
   const html = renderHtml(p.subjectTpl, p.bodyTpl, vars)

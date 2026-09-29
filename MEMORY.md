@@ -82,11 +82,22 @@
 - **Cron auth:** Uses standard `Authorization: Bearer <CRON_SECRET>` header (Vercel Cron sends this automatically when you set `CRON_SECRET` env var) rather than a query-string secret, to avoid leaking the secret into logs.
 - **Cron uses service role:** The cron route can't have a logged-in user, so it uses the Supabase service-role client to bypass RLS — safe because it only touches rows matching the reminder query and never exposes data to the caller.
 
+- **Phase 5+follow-up (2026-09-29): Hardening fixes requested before Phase 6**
+  - `vercel.json`: schedule changed from hourly `0 * * * *` to daily `0 9 * * *` (Vercel Hobby rejects hourly crons).
+  - `/api/cron/reminders` now accepts both GET and POST, both requiring `Authorization: Bearer <CRON_SECRET>` (returns 401 otherwise). Verified: GET no-auth 401, GET bad-auth 401, POST no-auth 401.
+  - Cron claim-sentinel pattern: before sending, the reminder job atomically `UPDATE`s all eligible rows (`status='sent'`, not clicked, no reminder, not manually reviewed, sent_at older than 3 days) to set `reminder_sent_at = '9999-01-01T00:00:00Z'`, then SELECTs rows carrying that sentinel. Failed sends reset `reminder_sent_at = NULL` so they can be retried next run; successful sends stamp the real ISO timestamp. This prevents overlapping cron invocations from double-sending.
+  - Monthly quota: `src/lib/billing/plans.ts` defines `free: 10/month` (rolling 30-day window), `pro/business: null` (unlimited). Both initial sends and reminders count against the quota (constant `REMINDERS_COUNT_TOWARD_QUOTA = true`). Enforced in `sendToOne`, `sendBulk` (stops at quota mid-batch with explanatory message), `resendRequest`, and in `runReminderCron` (per-business bucket with `used` counter, releases claim on quota-limited rows).
+  - Mailing address (CAN-SPAM): new `mailing_address TEXT NOT NULL DEFAULT ''` column via migration `00003_mailing_address.sql`; DB types updated; required in Zod schema; added to onboarding Step 1 (Textarea) with CAN-SPAM explainer; added to Settings form; rendered in email HTML footer (as a `<div>` under the name/contact/unsubscribe line) and in plain-text footer. Test-send and reminder/bulk emails all pass `mailing_address` through.
+  - Cross-account RLS isolation test moved from Phase 9 into Known Issues in ROADMAP.md (must be verified manually against live Supabase before launch).
+  - README/ROADMAP cleanup: fixed Next.js version (16), listed all 3 migrations in database setup, rewrote deploy notes with all env vars including `CRON_SECRET` and the daily cron schedule, marked Phases 1–5 as "Built, not yet verified against live Supabase and Resend" instead of "Completed", removed duplicate Phase 6 entry and outdated items (placeholder notices, Resend-waiting entries), clarified that reminders count toward quota.
+  - Docs: `PHASES.md`, `ROADMAP.md`, `README.md`, `MEMORY.md` all updated.
+
 ## Next up
 
 **Phase 6: Dashboard polish**
 - 30-day requests chart (line chart of sends per day)
-- Faster quick-add customer flow (target <10 seconds from dashboard)
+- Quota meter on dashboard showing free-plan usage (e.g. 7/10) with upgrade prompt
+- Faster quick-add customer flow from dashboard (target <10 seconds)
 - Optional reminder-sent stat card
 
 ## Open questions

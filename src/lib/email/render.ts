@@ -9,6 +9,7 @@ export interface TemplateVars {
   review_link: string
   unsubscribe_link?: string
   contact_line?: string
+  mailing_address?: string
 }
 
 export function applyTemplate(template: string, vars: TemplateVars): string {
@@ -80,7 +81,11 @@ export function renderHtml(
       `<a href="${escapeHtml(vars.unsubscribe_link)}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>`
     )
   }
-  const footerHtml = footerParts.join(" &nbsp;•&nbsp; ")
+  const footerTop = footerParts.join(" &nbsp;•&nbsp; ")
+  const addressHtml = vars.mailing_address
+    ? `<div style="margin-top:6px;white-space:pre-line;">${escapeHtml(vars.mailing_address)}</div>`
+    : ""
+  const footerHtml = footerTop + addressHtml
 
   return `<!doctype html>
 <html>
@@ -124,6 +129,7 @@ export function renderText(subject: string, body: string, vars: TemplateVars): s
   const parts = [renderedSubject, "", renderedBody]
   if (vars.contact_line) parts.push("", `— ${vars.business_name}, ${vars.contact_line}`)
   else parts.push("", `— ${vars.business_name}`)
+  if (vars.mailing_address) parts.push(vars.mailing_address)
   if (vars.unsubscribe_link) parts.push("", `Unsubscribe: ${vars.unsubscribe_link}`)
   return parts.join("\n")
 }
