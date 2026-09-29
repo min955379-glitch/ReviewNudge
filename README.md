@@ -117,11 +117,11 @@ RESEND_API_KEY=
 EMAIL_FROM_ADDRESS="ReviewNudge <reviews@yourdomain.com>"
 CRON_SECRET=
 UNSUBSCRIBE_SIGNING_SECRET=
-BILLING_PROVIDER=            # polar | lemonsqueezy
-BILLING_API_KEY=
-BILLING_WEBHOOK_SECRET=
-BILLING_PRO_PRODUCT_ID=
-BILLING_BUSINESS_PRODUCT_ID=
+# Polar billing (https://polar.sh). Leave unset during local dev to stay on Free-plan cap.
+POLAR_ACCESS_TOKEN=
+POLAR_WEBHOOK_SECRET=
+POLAR_PRO_PRODUCT_ID=
+POLAR_BUSINESS_PRODUCT_ID=
 ```
 
 If `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set, the app still runs but shows a "Setup required" banner with instructions.
@@ -133,8 +133,7 @@ If `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set, t
    - `supabase/migrations/00002_public_tracking.sql` — no-op, documents that public routes use the service-role client (no anon policies added)
    - `supabase/migrations/00003_mailing_address.sql` — required `mailing_address` column on businesses (CAN-SPAM)
    - `supabase/migrations/00004_reminder_claim_column.sql` — adds `reminder_claimed_at` for safe reminder cron claiming, plus supporting indexes
-
-After applying migrations, verify the anon role cannot read private tables by running:
+   - `supabase/migrations/00005_billing_columns.sql` — adds Polar subscription/customer ID columns and period tracking
 ```bash
 bash scripts/verify-anon-rls.sh
 ```

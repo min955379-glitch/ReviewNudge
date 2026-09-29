@@ -186,22 +186,26 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 7: Billing
-**Status:** Not started
+**Status:** Built, not yet verified against live Polar + Supabase
+
+Polar is our billing provider (polar.sh). All billing integration is behind env vars so the app works with a free-plan cap during local dev even without Polar credentials.
 
 **Checklist:**
-- [ ] Plan constants file (prices, limits)
-- [ ] Server-side limit enforcement (check monthly usage before sending)
-- [ ] Usage meter in dashboard/sidebar
-- [ ] Upgrade prompt when near limit
-- [ ] Billing provider integration (Polar or Lemon Squeezy — abstracted)
-- [ ] Checkout flow
-- [ ] `POST /api/webhooks/billing` with signature verification
-- [ ] Customer portal link in Settings
-- [ ] Plan updates synced to `businesses.plan`
+- [x] Plan constants (`src/lib/billing/plans.ts`) — Free 10/mo, Pro 300/mo ($12), Business 1500/mo ($29); reminders count toward quota
+- [x] Server-side limit enforcement — uses shared `countRecentSends` (initial sends + reminders in rolling 30-day window); enforced in `sendToOne`, `sendBulk`, `resendRequest`, and reminder cron
+- [x] Usage meter on dashboard quota card + dedicated `/app/settings/billing` page
+- [x] Upgrade prompt in quota card links to billing page; billing page shows plan comparison with upgrade CTAs
+- [x] Polar integration via `@polar-sh/sdk` (`src/lib/billing/polar.ts`): checkout creation, customer-portal URL
+- [x] Checkout flow — server action `startCheckout` creates a Polar checkout and redirects; metadata tags userId/businessId/plan so webhooks can sync plan
+- [x] `POST /api/webhooks/billing` — verifies signature with `POLAR_WEBHOOK_SECRET` via `@polar-sh/sdk/webhooks.validateEvent`; handles `checkout.updated`, `subscription.active`, `subscription.updated`, `subscription.canceled`, `subscription.revoked` (downgrades to free); stores billing_customer_id / billing_subscription_id / subscription_status / current_period_end / cancel_at_period_end
+- [x] Customer-portal link ("Manage subscription") on Billing page for active subscribers, opening Polar's /purchases portal
+- [x] Plan updates synced to `businesses.plan` — webhook writes plan, subscription metadata, and period end; quota checks read directly from `business.plan`
+- [x] Migration `00005_billing_columns.sql` adds billing_customer_id, billing_subscription_id, billing_provider, subscription_status, current_period_end, cancel_at_period_end
+- [x] `.env.example` updated with POLAR_ACCESS_TOKEN / POLAR_WEBHOOK_SECRET / POLAR_PRO_PRODUCT_ID / POLAR_BUSINESS_PRODUCT_ID
 
 **Done when:**
 - Free plan user is blocked after 10 sends in a month
-- Pro/Business plan limits enforced correctly
+- Pro/Business plan limits enforced correctly against live Polar webhook sync
 - Webhook updates plan status
 - User can manage subscription via portal link
 

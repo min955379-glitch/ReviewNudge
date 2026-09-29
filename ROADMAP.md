@@ -74,11 +74,22 @@ Last updated: 2026-09-29
 
 ## Next
 
-### Phase 7: Billing
+### Phase 8: Landing page and polish
 
 ---
 
 ## Built (not yet verified end-to-end)
+
+### Phase 7: Billing (Polar) ✓
+- Provider: Polar (polar.sh), Merchant of Record. Installed `@polar-sh/sdk`.
+- Plan constants: Free 10/mo, Pro 300/mo @ $12, Business 1500/mo @ $29; reminders count toward quota.
+- Migration `00005_billing_columns.sql` adds billing_customer_id / billing_subscription_id / billing_provider / subscription_status / current_period_end / cancel_at_period_end.
+- Shared quota helper (`src/lib/billing/quota.ts`) used by send actions, reminder cron, dashboard, and billing page.
+- Dedicated `/app/settings/billing` page: current plan card with Progress usage meter, plan picker cards for Free/Pro/Business, success/canceled flash messages, "Manage subscription" portal link for active subscribers.
+- Server action `startCheckout` creates a Polar checkout (with userId/businessId/plan metadata) and redirects; client `CheckoutButton` shows loading state + errors inline.
+- `POST /api/webhooks/billing`: signature-verified via `validateEvent`; syncs customer ID on checkout.updated, plan/period/cancel flag on subscription events; downgrades to free on subscription.revoked.
+- `.env.example` updated with POLAR_ACCESS_TOKEN / POLAR_WEBHOOK_SECRET / POLAR_PRO_PRODUCT_ID / POLAR_BUSINESS_PRODUCT_ID.
+- When Polar is unconfigured (dev), upgrade buttons show "Coming soon" and the free-plan cap still applies.
 
 ### Phase 6: Dashboard polish ✓
 - Stat cards: emails sent (30d, initial + reminders), click rate, clicks, manually confirmed reviews
@@ -86,7 +97,6 @@ Last updated: 2026-09-29
 - Quota meter: rolling 30-day usage vs plan limit (color-coded — green/amber/red), upgrade CTA at/near limit
 - Quick-add form embedded directly on the dashboard (name + email + consent checkbox → add customer and send a review request in one submit, inline success/error, form auto-resets)
 - Recent-requests list with "View all" link; Quick Actions panel retained with customer count + links
-- Placeholder Billing page at `/app/settings/billing` showing current plan, usage, and "Upgrade to Pro (coming soon)" CTA
 - Quota counting extracted into shared `src/lib/billing/quota.ts` (`countRecentSends`) used by initial/bulk/resend actions, reminder cron, dashboard, and billing page
 
 ## Planned

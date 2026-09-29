@@ -14,6 +14,12 @@ export interface Database {
           mailing_address: string
           timezone: string
           plan: "free" | "pro" | "business"
+          billing_customer_id: string | null
+          billing_subscription_id: string | null
+          billing_provider: string | null
+          subscription_status: string | null
+          current_period_end: string | null
+          cancel_at_period_end: boolean | null
           created_at: string
         }
         Insert: {
@@ -26,6 +32,12 @@ export interface Database {
           mailing_address?: string
           timezone?: string
           plan?: "free" | "pro" | "business"
+          billing_customer_id?: string | null
+          billing_subscription_id?: string | null
+          billing_provider?: string | null
+          subscription_status?: string | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean | null
           created_at?: string
         }
         Update: {
@@ -38,6 +50,12 @@ export interface Database {
           mailing_address?: string
           timezone?: string
           plan?: "free" | "pro" | "business"
+          billing_customer_id?: string | null
+          billing_subscription_id?: string | null
+          billing_provider?: string | null
+          subscription_status?: string | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean | null
           created_at?: string
         }
       }

@@ -122,18 +122,38 @@
     - Quick-actions panel retained with live customer count.
     - "Emails sent" stat replaces the old "Requests sent" to clarify reminders count too; clicks/click-rate/manually reviewed stat cards preserved.
   - New shared quota helper `src/lib/billing/quota.ts` exporting `countRecentSends(sb, businessId, sinceIso)` used by `sendToOne`, `sendBulk`, `resendRequest`, reminder cron, dashboard, and billing page — eliminates three duplicate implementations.
-  - New placeholder billing page `src/app/app/settings/billing/page.tsx`: displays current plan badge, usage count vs limit, explains that billing provider integration is Phase 7, shows an "Upgrade to Pro (coming soon)" disabled button.
+  - Billing page at `src/app/app/settings/billing/page.tsx` (replaced placeholder): current plan card with Progress usage meter, plan-picker grid (Free/Pro/Business), success/cancel flash messages, "Manage subscription" portal link for active subscribers.
   - New shadcn-style `src/components/ui/progress.tsx` (color-coded by percentage).
   - Build + lint both clean; dev server verified `/`, `/login`, `/app`, `/app/settings/billing` all return 200.
 
+- **Phase 7 (2026-09-29): Billing (Polar)**
+  - Chose Polar (polar.sh) as the Merchant-of-Record provider. Installed `@polar-sh/sdk`.
+  - Updated `src/lib/billing/plans.ts`: added proper PlanId type, Pro (300/mo @ $12) and Business (1500/mo @ $29) limits, UPGRADE_PLANS list, isValidPlan() helper.
+  - New `src/lib/billing/polar.ts`: `isPolarConfigured()`, `getPolarClient()` (sandbox in dev, production in prod), `createCheckout()` (products, successUrl/returnUrl, customerEmail, externalCustomerId=userId, metadata with userId/businessId/plan), `createPortalLink()` (returns Polar /purchases/:id URL).
+  - New migration `00005_billing_columns.sql`: adds `billing_customer_id`, `billing_subscription_id`, `billing_provider`, `subscription_status`, `current_period_end`, `cancel_at_period_end` to businesses; two partial indexes for fast lookups.
+  - Updated `database.types.ts` with new columns on businesses Row/Insert/Update.
+  - New server action `src/app/app/settings/billing/actions.ts` (`startCheckout`): requires business, validates plan, calls createCheckout, redirects; returns {error} on failure.
+  - New client `src/app/app/settings/billing/checkout-button.tsx` — useActionState wrapper that shows spinner during redirect and inline errors.
+  - Rewrote billing page to show 3 plan cards with real CTAs (forms posting to startCheckout when Polar is configured, "Coming soon" disabled when not); shows cancel-at-period-end warning, links to Polar portal for existing subscribers.
+  - Rewrote `/api/webhooks/billing/route.ts`:
+    - Runtime = nodejs, force dynamic.
+    - Reads raw body, validates signature via `validateEvent(body, headers, POLAR_WEBHOOK_SECRET)` from `@polar-sh/sdk/webhooks`; 401 on invalid signature.
+    - Uses service-role client to update businesses.
+    - `checkout.updated`: stores billing_customer_id; on confirmed/succeeded, resolves plan from metadata (preferred) or product mapping and sets businesses.plan.
+    - `subscription.active|updated|canceled|revoked`: writes subscription id/status/period_end/cancel flag, maps productId → plan; on revoked, downgrades to free.
+  - Updated `/pricing` page to reflect real plan prices/features (300/1500 emails, etc.).
+  - `.env.example` updated with POLAR_ACCESS_TOKEN, POLAR_WEBHOOK_SECRET, POLAR_PRO_PRODUCT_ID, POLAR_BUSINESS_PRODUCT_ID.
+  - README DB setup lists migration 00005 and updated env vars.
+  - Quota enforcement already reads `business.plan` directly — so as soon as webhook writes the plan column, plan limits apply automatically (300 for pro, 1500 for business).
+
 ## Next up
 
-**Phase 7: Billing**
-- Plan constants + per-plan enforcement beyond free (already enforced at 10/30d on free)
-- Billing provider integration (Polar or Lemon Squeezy — need user to pick)
-- Checkout flow + webhook handler (`/api/webhooks/billing` route already exists as placeholder)
-- Customer portal link
-- Enable Pro/Business plan quota (currently unlimited) after webhook integration is verified
+**Phase 8: Landing page and polish**
+- Final marketing landing page (hero, how-it-works, pricing, FAQ with honest Google/Compliance answers)
+- SEO metadata, PWA manifest, legal pages flesh-out (Terms/Privacy already exist as stubs)
+- Empty states, 404/error pages
+- Mobile polish pass (375px breakpoint QA)
+- Copy pass across all templates/defaults
 
 ## Open questions
 
