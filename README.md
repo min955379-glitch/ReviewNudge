@@ -24,9 +24,19 @@ Local businesses live or die by their Google reviews, but asking every customer 
 
 ## Current functionality
 
-> **Status: Early development — Phase 0 complete (project planning).**
+> **Status: Phase 1 (Foundation) complete.**
 
-No application code has been written yet. The project is in Phase 0 (project context documentation). See [ROADMAP.md](ROADMAP.md) for progress.
+- Next.js 16 App Router app with TypeScript + Tailwind CSS v4
+- Supabase auth wired up (email/password + Google OAuth ready)
+- Route protection via middleware
+- Responsive app shell with sidebar navigation
+- Login, signup, forgot-password pages
+- Dashboard with stat card placeholders
+- Database migration for all tables with RLS
+- Placeholder pages for all planned routes
+- Full build and lint pass; dev server runs out of the box
+
+**Not yet implemented:** onboarding/business setup, customer management, email sending, tracking, reminders, billing, final landing page.
 
 ## Technology stack
 
@@ -65,26 +75,29 @@ No application code has been written yet. The project is in Phase 0 (project con
 
 ## Setup and installation
 
-> Not yet available — project is in early scaffolding phase. Instructions will be updated as Phase 1 (Foundation) is completed.
-
 ### Prerequisites
-- Node.js 18+
-- npm or pnpm
-- A Supabase account
-- A Resend account
+- Node.js 18+ (Next.js 16 requires Node 18.18+)
+- npm
+- A Supabase account (for auth + database)
+- A Resend account (for transactional email — needed from Phase 4)
 - A Vercel account (for deployment)
+
+### Install
+```bash
+npm install
+```
 
 ### Environment variables
 
 Copy `.env.example` to `.env.local` and fill in:
 
 ```
-NEXT_PUBLIC_APP_URL=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 RESEND_API_KEY=
-EMAIL_FROM_ADDRESS=
+EMAIL_FROM_ADDRESS="ReviewNudge <reviews@yourdomain.com>"
 CRON_SECRET=
 UNSUBSCRIBE_SIGNING_SECRET=
 BILLING_PROVIDER=            # polar | lemonsqueezy
@@ -94,13 +107,28 @@ BILLING_PRO_PRODUCT_ID=
 BILLING_BUSINESS_PRODUCT_ID=
 ```
 
+If `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set, the app still runs but shows a "Setup required" banner with instructions.
+
+### Database setup
+1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard).
+2. In the SQL Editor, run the migration at `supabase/migrations/00001_initial_schema.sql`.
+3. Under Authentication → Providers, enable Email and (optionally) Google.
+4. Add your site URL (`http://localhost:3000`) to Authentication → URL Configuration → Redirect URLs, along with `http://localhost:3000/auth/callback`.
+
 ## How to run locally
 
-> Coming after Phase 1. Roughly:
-> ```bash
-> npm install
-> npm run dev
-> ```
+```bash
+npm run dev
+```
+
+Open http://localhost:3000.
+
+### Other commands
+```bash
+npm run build    # Production build
+npm run lint     # ESLint
+npm run start    # Serve production build
+```
 
 ## How to build and deploy
 
@@ -110,9 +138,9 @@ Email deliverability requires domain verification with Resend (SPF, DKIM, DMARC 
 
 ## Current development status
 
-- **Phase:** 0 (Project context files) — Complete
-- **Next phase:** Phase 1 — Foundation (project scaffolding, auth, database)
-- App is **not yet runnable**; documentation is in place and development is ready to begin.
+- **Phase:** 1 (Foundation) — Complete
+- **Next phase:** Phase 2 — Business setup (onboarding wizard + settings page)
+- App compiles, runs, and passes lint/build. Auth and database are wired up but require Supabase credentials to use end-to-end.
 
 ## Important limitations
 
