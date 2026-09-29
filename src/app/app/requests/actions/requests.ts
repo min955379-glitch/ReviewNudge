@@ -19,16 +19,23 @@ function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || ""
 }
 
-/** Count emails sent by this business in the current 30-day rolling window. */
+/**
+ * Count emails sent by this business in the rolling 30-day window.
+ * Initial sends = rows with status sent/clicked and sent_at in window.
+ * Reminders    = rows with reminder_sent_at in window (same row can count twice).
+ */
 async function countRecentSends(sb: Qb, businessId: string): Promise<number> {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  const res = await sb
-    .from("review_requests")
+  const tbl = () => sb.from("review_requests").eq("business_id", businessId)
+  const initial = await tbl()
     .select("id", { count: "exact", head: true })
-    .eq("business_id", businessId)
     .in("status", ["sent", "clicked"])
     .gte("sent_at", since)
-  return (res.count as number) ?? 0
+  const reminders = await tbl()
+    .select("id", { count: "exact", head: true })
+    .not("reminder_sent_at", "is", null)
+    .gte("reminder_sent_at", since)
+  return ((initial.count as number) ?? 0) + ((reminders.count as number) ?? 0)
 }
 
 function quotaError(biz: Biz, used: number, limit: number): string {

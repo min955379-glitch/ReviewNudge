@@ -1,6 +1,6 @@
 "use server"
 
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createSupabaseServiceClient } from "@/lib/supabase/server"
 import { verifyToken } from "@/lib/utils/crypto"
 
 export async function performUnsubscribe(token: string): Promise<{
@@ -12,10 +12,10 @@ export async function performUnsubscribe(token: string): Promise<{
   if (!payload || typeof payload.business_id !== "string" || typeof payload.email !== "string") {
     return { ok: false }
   }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { ok: false }
   }
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseServiceClient()
   const { data: business } = await (supabase.from("businesses") as unknown as {
     select: (c: string) => { eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data: unknown; error: unknown }> } }
   })

@@ -129,9 +129,16 @@ If `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set, t
 ### Database setup
 1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard).
 2. In the SQL Editor, run the migrations in order:
-   - `supabase/migrations/00001_initial_schema.sql` (tables, RLS, helpers)
-   - `supabase/migrations/00002_public_tracking.sql` (public read/update policies for click + unsubscribe pages)
-   - `supabase/migrations/00003_mailing_address.sql` (required `mailing_address` column on businesses)
+   - `supabase/migrations/00001_initial_schema.sql` — tables, RLS (owner-only policies), short_code helper
+   - `supabase/migrations/00002_public_tracking.sql` — no-op, documents that public routes use the service-role client (no anon policies added)
+   - `supabase/migrations/00003_mailing_address.sql` — required `mailing_address` column on businesses (CAN-SPAM)
+   - `supabase/migrations/00004_reminder_claim_column.sql` — adds `reminder_claimed_at` for safe reminder cron claiming, plus supporting indexes
+
+After applying migrations, verify the anon role cannot read private tables by running:
+```bash
+bash scripts/verify-anon-rls.sh
+```
+The script exits 0 only when `/rest/v1/businesses`, `/rest/v1/customers`, and `/rest/v1/review_requests` return 401/403 or an empty array for the anon key.
 3. Under Authentication → Providers, enable Email and (optionally) Google.
 4. Add your site URL (`http://localhost:3000`) to Authentication → URL Configuration → Redirect URLs, along with `http://localhost:3000/auth/callback`.
 

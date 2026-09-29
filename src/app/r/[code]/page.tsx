@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createSupabaseServiceClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, Bot, ExternalLink, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,9 @@ export default async function TrackingRedirectPage({ params }: Params) {
   const requestHeaders = await headers()
   const userAgent = (requestHeaders.get("user-agent") ?? "").toLowerCase()
   const isBot = BOT_UA_RE.test(userAgent)
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  // Public tracking page uses the service-role client (bypasses RLS); it must
+  // never use the anon key, and we require SUPABASE_SERVICE_ROLE_KEY to be set.
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -40,7 +42,7 @@ export default async function TrackingRedirectPage({ params }: Params) {
       </div>
     )
   }
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseServiceClient()
 
   // Look up the request by short_code
   const { data: raw } = await supabase

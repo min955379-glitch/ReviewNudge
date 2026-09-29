@@ -84,6 +84,7 @@ export interface Database {
           first_clicked_at: string | null
           click_count: number
           reminder_sent_at: string | null
+          reminder_claimed_at: string | null
           manually_marked_reviewed: boolean
           error_message: string | null
           created_at: string
@@ -98,6 +99,7 @@ export interface Database {
           first_clicked_at?: string | null
           click_count?: number
           reminder_sent_at?: string | null
+          reminder_claimed_at?: string | null
           manually_marked_reviewed?: boolean
           error_message?: string | null
           created_at?: string
@@ -112,6 +114,7 @@ export interface Database {
           first_clicked_at?: string | null
           click_count?: number
           reminder_sent_at?: string | null
+          reminder_claimed_at?: string | null
           manually_marked_reviewed?: boolean
           error_message?: string | null
           created_at?: string

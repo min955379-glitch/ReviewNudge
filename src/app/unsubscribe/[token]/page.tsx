@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createSupabaseServiceClient } from "@/lib/supabase/server"
 import { verifyToken } from "@/lib/utils/crypto"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,7 @@ export default async function UnsubscribePage({ params, searchParams }: Params) 
   const sp = await searchParams
   const payload = verifyToken(token)
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -51,7 +51,7 @@ export default async function UnsubscribePage({ params, searchParams }: Params) 
   const email = payload.email as string
   const businessId = payload.business_id as string
 
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseServiceClient()
   const { data: business } = await supabase
     .from("businesses")
     .select("name")

@@ -50,7 +50,7 @@ Last updated: 2026-09-29
 - Requests page (`/app/requests`) with server-joined customer data, status badges (Queued/Sent/Failed/Link clicked/Reviewed), filters, search, resend for failures, mark-reviewed action
 - Public `/r/[code]` click-tracking redirect (marks clicked, increments click_count) with a friendly CTA page pointing to the business's Google review URL
 - Public `/unsubscribe/[token]` confirmation page + `POST /api/unsubscribe/[token]` RFC 8058 one-click endpoint
-- Supabase migration `00002_public_tracking.sql` opens anon RLS on review_requests/businesses/customers needed by the public routes
+- Public routes (`/r/[code]`, `/unsubscribe/[token]`, `POST /api/unsubscribe/[token]`) use the **service-role** Supabase client (no anon RLS grants; migration `00002_public_tracking.sql` is a no-op documenting this choice). Anon role has zero access to businesses/customers/review_requests — verified with `scripts/verify-anon-rls.sh`.
 - Dashboard updated with real 30-day stats (sent, click rate, clicks, marked reviewed), recent-activity list, email-setup warning when Resend env vars are missing
 - Dashboard "Send a request" CTA links to Customers; Templates quick-link added
 - `.env.example` lists `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS`, `UNSUBSCRIBE_SIGNING_SECRET`
@@ -58,7 +58,8 @@ Last updated: 2026-09-29
 ### Phase 5: Tracking and reminders ✓
 - Bot/scanner detection on `/r/[code]`: UA regex matching for known bots, crawlers, link previews (WhatsApp/Slack/Teams/Telegram/Facebook/Twitter/LinkedIn), HTTP libraries (curl/wget/python-requests), monitoring/uptime agents, headless browsers. Bots see the CTA page but clicks are not counted; a small "Automated preview" notice is shown.
 - `POST /api/cron/reminders` protected by `Authorization: Bearer <CRON_SECRET>` (401 on missing/bad token; structured JSON result on success; graceful error when credentials are missing).
-- Reminder engine in `src/lib/cron/send-reminders.ts` (`runReminderCron`): finds `review_requests` with `status='sent'`, not clicked, no reminder yet, not manually reviewed, `sent_at` ≥ 3 days old (500-row cap per run). Re-checks customer eligibility right before send, groups by business to fetch templates once, uses the reminder template (falling back to request), throttles sends at 200ms intervals, and stamps `reminder_sent_at` on success so the row isn't picked up again.
+- Reminder engine in `src/lib/cron/send-reminders.ts` (`runReminderCron`): finds `review_requests` with `status='sent'`, not clicked, no reminder yet, not manually reviewed, `sent_at` ≥ 3 days old. Uses `reminder_claimed_at` column for safe concurrency (releases claims stale >15 min, atomically claims a batch of up to `BATCH_LIMIT=40` rows per run to stay inside serverless timeouts). Re-checks customer eligibility right before send, groups by business to fetch templates once, uses the reminder template (falling back to request), throttles sends at 200ms intervals, stamps `reminder_sent_at` and clears the claim on success; releases claim on failure/skip/quota-limit so it can be retried.
+- Reminders count toward the monthly email quota (same as initial sends); `countRecentSends` sums initial sends + reminders in a rolling 30-day window.
 - Reminders reuse the original short_code tracking link so the same link keeps working; exactly one reminder is ever sent per request.
 - `vercel.json` schedules `/api/cron/reminders` hourly (`0 * * * *`).
 - Graceful no-op (returns structured error, no crash) when Supabase service-role or Resend credentials are missing.

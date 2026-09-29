@@ -82,6 +82,26 @@
 - **Cron auth:** Uses standard `Authorization: Bearer <CRON_SECRET>` header (Vercel Cron sends this automatically when you set `CRON_SECRET` env var) rather than a query-string secret, to avoid leaking the secret into logs.
 - **Cron uses service role:** The cron route can't have a logged-in user, so it uses the Supabase service-role client to bypass RLS — safe because it only touches rows matching the reminder query and never exposes data to the caller.
 
+- **Phase 5+follow-up #2 (2026-09-29): Security + reminder-claim + quota fixes**
+  - RLS hardening: `supabase/migrations/00002_public_tracking.sql` rewritten to `SELECT 1;` (documentation-only, creates **no** RLS policies). The previous version added five `USING (true)` policies that granted the `anon`/`authenticated` roles SELECT on `businesses`/`customers`/`review_requests` and UPDATE on `review_requests`/`customers` — any visitor with the anon key could enumerate all three tables. The fix removes those grants entirely.
+  - Public routes now use the **service-role** Supabase client (bypasses RLS, requires `SUPABASE_SERVICE_ROLE_KEY` env var):
+    - `src/app/r/[code]/page.tsx`
+    - `src/app/unsubscribe/[token]/page.tsx`
+    - `src/lib/email/unsubscribe.ts` (feeds `POST /api/unsubscribe/[token]`)
+  - Because these routes always look up by the high-entropy `short_code` (8 chars alnum, ~2e14 space) or HMAC-signed unsubscribe token, using the service role server-side is strictly safer than opening RLS to anon.
+  - New script `scripts/verify-anon-rls.sh`: hits `/rest/v1/businesses`, `/customers`, `/review_requests` with the anon key; exits 0 only when all three return 401/403 or empty `[]`. Documented in README.
+  - Reminder claim column: new migration `00004_reminder_claim_column.sql` adds `reminder_claimed_at TIMESTAMPTZ` to `review_requests` plus two partial indexes (`idx_review_requests_unreminded`, `idx_review_requests_claimed`). DB types updated.
+  - `src/lib/cron/send-reminders.ts` rewritten to use the new claim column:
+    - At start of each run, releases stale claims older than 15 minutes (`CLAIM_STALE_MS = 15 * 60 * 1000`) by setting `reminder_claimed_at = NULL`.
+    - Atomic claim: SELECT candidate IDs matching eligibility (ordered by `sent_at` ASC, `LIMIT BATCH_LIMIT`), then UPDATE those IDs to set `reminder_claimed_at = now()`.
+    - SELECTs claimed rows and processes them.
+    - Success stamps `reminder_sent_at` and clears `reminder_claimed_at`; failure/skip/quota-skip releases claim to NULL.
+    - `BATCH_LIMIT = 40` (down from 500) — safe for Vercel serverless's ~10s budget at ~150ms/email.
+  - Quota count fix: `countRecentSends` in both `src/app/app/requests/actions/requests.ts` and `src/lib/cron/send-reminders.ts` now runs two separate count queries — one for initial sends (`status IN ('sent','clicked') AND sent_at >= since`) and one for reminders (`reminder_sent_at >= since`) — and sums them. Previously only `status IN ('sent','clicked')` was counted, which under-counted free-plan usage when reminders were sent. A row where both timestamps fall in the window correctly counts as 2.
+  - README DB setup now lists all 4 migrations (00001–00004) and explains the RLS verification script.
+  - Build + lint pass. Smoke test against `next start`: GET/POST with valid `CRON_SECRET` returns structured `ok:false` JSON (Supabase not configured) with HTTP 500; wrong secret returns 401.
+  - Commit for this fix block pending after final review.
+
 - **Phase 5+follow-up (2026-09-29): Hardening fixes requested before Phase 6**
   - `vercel.json`: schedule changed from hourly `0 * * * *` to daily `0 9 * * *` (Vercel Hobby rejects hourly crons).
   - `/api/cron/reminders` now accepts both GET and POST, both requiring `Authorization: Bearer <CRON_SECRET>` (returns 401 otherwise). Verified: GET no-auth 401, GET bad-auth 401, POST no-auth 401.
