@@ -8,6 +8,7 @@ import { DeleteCustomerButton } from "@/components/customers/delete-customer-but
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -17,7 +18,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Search, MailX, Users, Check } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle, Mail, Search, MailX, Users, Check, Loader2 } from "lucide-react"
+import { sendBulk } from "../requests/actions/requests"
+import { useActionState } from "react"
 
 type Customer = {
   id: string
@@ -31,6 +35,15 @@ type Customer = {
 
 type SortKey = "name" | "email" | "created_at"
 type SortDir = "asc" | "desc"
+
+type BulkRes = {
+  success?: boolean
+  error?: string
+  errors?: Record<string, string | undefined>
+  sent?: number
+  failed?: number
+  skipped?: number
+} | null
 
 function SortButton({
   k,
@@ -62,22 +75,17 @@ function SortButton({
 export function CustomersClientWrapper({ initialCustomers }: { initialCustomers: Customer[] }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  // Customers state is held locally for sort/filter. After mutations we rely on
-  // router.refresh() to re-fetch, but we keep useState so clients can re-sort/filter
-  // without waiting for the server round-trip.
   const [customers] = useState(initialCustomers)
   const [query, setQuery] = useState("")
   const [sortKey, setSortKey] = useState<SortKey>("created_at")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  const refresh = () => startTransition(() => router.refresh())
+  const refresh = () => startTransition(() => { router.refresh() })
 
   function toggleSort(k: SortKey) {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
-    else {
-      setSortKey(k)
-      setSortDir("asc")
-    }
+    else { setSortKey(k); setSortDir("asc") }
   }
 
   const filtered = useMemo(() => {
@@ -88,30 +96,64 @@ export function CustomersClientWrapper({ initialCustomers }: { initialCustomers:
         (c) =>
           c.name.toLowerCase().includes(q) ||
           (c.email ?? "").toLowerCase().includes(q) ||
-          (c.phone ?? "").toLowerCase().includes(q)
+          (c.phone ?? "").toLowerCase().includes(q),
       )
     }
-    const sorted = [...list].sort((a, b) => {
-      let av: string
-      let bv: string
-      if (sortKey === "created_at") {
-        av = a.created_at
-        bv = b.created_at
-      } else if (sortKey === "email") {
-        av = a.email ?? ""
-        bv = b.email ?? ""
-      } else {
-        av = a.name
-        bv = b.name
-      }
+    return [...list].sort((a, b) => {
+      let av: string, bv: string
+      if (sortKey === "created_at") { av = a.created_at; bv = b.created_at }
+      else if (sortKey === "email") { av = a.email ?? ""; bv = b.email ?? "" }
+      else { av = a.name; bv = b.name }
       if (av < bv) return sortDir === "asc" ? -1 : 1
       if (av > bv) return sortDir === "asc" ? 1 : -1
       return 0
     })
-    return sorted
   }, [customers, query, sortKey, sortDir])
 
+  const emailable = useMemo(
+    () => filtered.filter((c) => c.email && !c.unsubscribed && c.consent_confirmed),
+    [filtered],
+  )
+  const allEmailableSelected =
+    emailable.length > 0 && emailable.every((c) => selected.has(c.id))
 
+  function toggleAllEmailable() {
+    if (allEmailableSelected) {
+      const next = new Set(selected)
+      emailable.forEach((c) => next.delete(c.id))
+      setSelected(next)
+    } else {
+      const next = new Set(selected)
+      emailable.forEach((c) => next.add(c.id))
+      setSelected(next)
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const [bulkState, bulkAction, bulkPending] = useActionState<BulkRes, FormData>(
+    async (_prev, fd) => {
+      const res = await sendBulk(_prev, fd)
+      if (res?.success) {
+        setSelected(new Set())
+        router.refresh()
+      }
+      return res
+    },
+    null,
+  )
+
+  function submitBulk() {
+    const fd = new FormData()
+    fd.set("customer_ids_json", JSON.stringify(Array.from(selected)))
+    bulkAction(fd)
+  }
 
   return (
     <div className="space-y-6">
@@ -138,13 +180,46 @@ export function CustomersClientWrapper({ initialCustomers }: { initialCustomers:
         />
       </div>
 
+      {bulkState?.success && (
+        <Alert variant="success">
+          <Check className="h-4 w-4" />
+          <AlertDescription>
+            Sent {bulkState.sent ?? 0} review request{bulkState.sent === 1 ? "" : "s"}.
+            {bulkState.skipped ? ` ${bulkState.skipped} skipped (unsubscribed/missing email).` : ""}
+            {bulkState.failed ? ` ${bulkState.failed} failed.` : ""}
+          </AlertDescription>
+        </Alert>
+      )}
+      {(bulkState?.error || bulkState?.errors?._form || bulkState?.errors?.customer_ids) && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {bulkState.error || bulkState.errors?._form || bulkState.errors?.customer_ids}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {selected.size > 0 && (
+        <div className="sticky top-0 z-10 flex items-center justify-between rounded-lg border bg-background/95 px-4 py-2 shadow-sm backdrop-blur">
+          <p className="text-sm">
+            <strong>{selected.size}</strong> selected
+          </p>
+          <form action={submitBulk}>
+            <Button type="submit" disabled={bulkPending} size="sm">
+              {bulkPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              Send review request{selected.size === 1 ? "" : "s"}
+            </Button>
+          </form>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">
             {customers.length} customer{customers.length === 1 ? "" : "s"}
           </CardTitle>
           <CardDescription>
-            Click a column header to sort. Unsubscribed customers cannot be emailed.
+            Tick the box to select, then click send. Unsubscribed customers can&apos;t be emailed.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
@@ -166,6 +241,14 @@ export function CustomersClientWrapper({ initialCustomers }: { initialCustomers:
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        aria-label="Select all emailable"
+                        checked={allEmailableSelected}
+                        disabled={emailable.length === 0}
+                        onCheckedChange={toggleAllEmailable}
+                      />
+                    </TableHead>
                     <TableHead>
                       <SortButton k="name" label="Name" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
                     </TableHead>
@@ -181,36 +264,51 @@ export function CustomersClientWrapper({ initialCustomers }: { initialCustomers:
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {c.email || <span className="italic">—</span>}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {c.phone || <span className="italic">—</span>}
-                      </TableCell>
-                      <TableCell>
-                        {c.unsubscribed ? (
-                          <Badge variant="destructive" className="gap-1">
-                            <MailX className="h-3 w-3" /> Unsubscribed
-                          </Badge>
-                        ) : c.consent_confirmed ? (
-                          <Badge variant="success" className="gap-1">
-                            <Check className="h-3 w-3" /> Consent
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">No consent</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(c.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <DeleteCustomerButton id={c.id} onDeleted={refresh} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filtered.map((c) => {
+                    const canEmail = !!c.email && !c.unsubscribed && c.consent_confirmed
+                    const isSelected = selected.has(c.id)
+                    return (
+                      <TableRow key={c.id} data-state={isSelected ? "selected" : undefined} className={isSelected ? "bg-muted/50" : ""}>
+                        <TableCell>
+                          <Checkbox
+                            aria-label={`Select ${c.name}`}
+                            checked={isSelected}
+                            disabled={!canEmail}
+                            onCheckedChange={() => toggleOne(c.id)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{c.name}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {c.email || <span className="italic">—</span>}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {c.phone || <span className="italic">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          {c.unsubscribed ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <MailX className="h-3 w-3" /> Unsubscribed
+                            </Badge>
+                          ) : c.consent_confirmed ? (
+                            <Badge variant="success" className="gap-1">
+                              <Check className="h-3 w-3" /> Consent
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">No consent</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(c.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <DeleteCustomerButton id={c.id} onDeleted={() => {
+                            setSelected((s) => { const n = new Set(s); n.delete(c.id); return n })
+                            refresh()
+                          }} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>

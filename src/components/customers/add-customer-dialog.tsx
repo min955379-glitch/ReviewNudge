@@ -1,7 +1,8 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
+import { useActionState, useEffect, useRef, useState } from "react"
 import { Plus } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,32 +17,44 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle2 } from "lucide-react"
+import { AlertCircle, CheckCircle2, MailCheck } from "lucide-react"
 import { addCustomer } from "@/app/app/customers/actions/customers"
+import { addAndSendCustomer } from "@/app/app/customers/actions/add-and-send"
 
-// Action function signature expected by React 19 useActionState
-type ServerActionFn = (
-  prevState: unknown,
-  formData: FormData
-) => Promise<{ success?: boolean; errors?: Record<string, string | undefined>; values?: Record<string, string> } | null>
-
-type ActionRes = Awaited<ReturnType<ServerActionFn>>
+type AddRes = {
+  success?: boolean
+  errors?: Record<string, string | undefined>
+  values?: Record<string, string>
+  sent?: boolean
+  sendError?: string
+} | null
 
 export function AddCustomerDialog({ onAdded }: { onAdded?: () => void }) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [state, action, pending] = useActionState<ActionRes, FormData>(addCustomer as ServerActionFn, null)
   const [andSend, setAndSend] = useState(false)
+  const [addState, addAction, addPending] = useActionState<AddRes, FormData>(addCustomer, null)
+  const [sendState, sendAction, sendPending] = useActionState<AddRes, FormData>(addAndSendCustomer, null)
+  const formRef = useRef<HTMLFormElement>(null)
 
+  const state = andSend ? sendState : addState
+  const action = andSend ? sendAction : addAction
+  const pending = andSend ? sendPending : addPending
   const success = !!state?.success
+
   useEffect(() => {
     if (success && open) {
       const t = setTimeout(() => {
         setOpen(false)
+        router.refresh()
         onAdded?.()
-      }, 700)
+        // reset form
+        formRef.current?.reset()
+        setAndSend(false)
+      }, 1200)
       return () => clearTimeout(t)
     }
-  }, [success, open, onAdded])
+  }, [success, open, router, onAdded])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -60,17 +73,25 @@ export function AddCustomerDialog({ onAdded }: { onAdded?: () => void }) {
           </DialogDescription>
         </DialogHeader>
 
-        <form action={action} className="space-y-4">
+        <form ref={formRef} action={action} className="space-y-4">
           {state?.errors?._form && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{state.errors._form}</AlertDescription>
             </Alert>
           )}
+          {state?.sendError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>Customer added, but email failed: {state.sendError}</AlertDescription>
+            </Alert>
+          )}
           {success && (
             <Alert variant="success">
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertDescription>Customer added.</AlertDescription>
+              {state?.sent ? <MailCheck className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+              <AlertDescription>
+                {state?.sent ? "Customer added and review request sent." : "Customer added."}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -131,8 +152,7 @@ export function AddCustomerDialog({ onAdded }: { onAdded?: () => void }) {
               onCheckedChange={(v) => setAndSend(v === true)}
             />
             <Label htmlFor="and_send" className="text-sm leading-snug font-normal">
-              Send a review request immediately after adding (coming in Phase 4 — will
-              show a preview for now).
+              Send a review request immediately after adding.
             </Label>
           </div>
 

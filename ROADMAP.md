@@ -33,48 +33,53 @@ Last updated: 2026-09-29
 
 ### Phase 3: Customers ✓
 - Customers page at `/app/customers` with server-fetched list, empty state, search and sortable table
-- Add Customer dialog (name, email, optional phone, required consent checkbox, "Add and send" checkbox)
+- Add Customer dialog (name, email, optional phone, required consent checkbox, wired "Add and send")
+- Bulk-select checkboxes + sticky "Send review requests" action bar
 - Per-row delete with confirm, ownership-guarded server-side
 - CSV import via Papaparse: auto column detection, duplicate detection by email, per-row error report, bulk consent checkbox, 5 MB cap
 - Unsubscribed customers marked with red badge and blocked from re-add (server enforced)
-- Server actions: `addCustomer`, `deleteCustomer`, `importCustomers` with Zod validation and field errors
-- Dashboard "Send a request" CTA links to Customers
+- Server actions: `addCustomer`, `addAndSendCustomer`, `deleteCustomer`, `importCustomers`, `sendBulk` with Zod validation
+
+### Phase 4: Sending emails ✓
+- Resend wrapped in `lib/email/send.ts` (`sendEmail`, `sendReviewEmail`) with HTML + plain text, List-Unsubscribe + List-Unsubscribe-Post headers, Reply-To
+- `lib/email/defaults.ts` and `lib/email/render.ts` for variable substitution, CTA button, footer
+- `lib/utils/crypto.ts` — `generateShortCode` (8-char crypto-random, collision retry), HMAC-signed unsubscribe tokens (30-day TTL)
+- Templates page (`/app/templates`) with tabs for request/reminder, live iframe preview (sample data: "Sam"), Reset-to-default, and test-send (warns when Resend is missing)
+- Single-send flow (`sendToOne`) creates `review_requests`, generates short code, sends email, records `sent`/`failed` with error message
+- Bulk send: 100/hour rate-limit guard, 150 ms spacing, eligibility checks (consent, email, not unsubscribed, ownership)
+- Requests page (`/app/requests`) with server-joined customer data, status badges (Queued/Sent/Failed/Link clicked/Reviewed), filters, search, resend for failures, mark-reviewed action
+- Public `/r/[code]` click-tracking redirect (marks clicked, increments click_count) with a friendly CTA page pointing to the business's Google review URL
+- Public `/unsubscribe/[token]` confirmation page + `POST /api/unsubscribe/[token]` RFC 8058 one-click endpoint
+- Supabase migration `00002_public_tracking.sql` opens anon RLS on review_requests/businesses/customers needed by the public routes
+- Dashboard updated with real 30-day stats (sent, click rate, clicks, marked reviewed), recent-activity list, email-setup warning when Resend env vars are missing
+- Dashboard "Send a request" CTA links to Customers; Templates quick-link added
+- `.env.example` lists `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS`, `UNSUBSCRIBE_SIGNING_SECRET`
 
 ---
 
 ## In Progress
 
-(None actively in development)
+(None actively in development — Phase 4 just wrapped.)
 
 ---
 
 ## Next
 
-### Phase 4: Sending emails
-- Wire Resend into `sendEmail()` (HTML + plain text, List-Unsubscribe header, Reply-To)
-- Templates page (`/app/templates`) for editing request + reminder emails with live preview and Reset-to-default
-- Short code generation (8-char crypto-random, stored on review_requests)
-- Single send flow (from Customers page, creates review_request, generates code, sends email, updates status)
-- Bulk send to selected customers (respects plan limits — placeholder enforcement for now)
-- Requests page (`/app/requests`) with table, status badges, filters (status, date), row actions (resend, mark reviewed)
-- Signed one-click unsubscribe tokens
-- Basic rate limiting stub (max sends per hour)
+### Phase 5: Tracking + reminders (remaining work)
+- Bot/scanner user-agent filtering on `/r/[code]` (so link scanners don't inflate click counts)
+- `POST /api/cron/reminders` protected by `CRON_SECRET`
+- Reminder logic: `status='sent'`, not clicked, no reminder yet, `sent_at` > 3 days ago
+- Send reminder email once; set `reminder_sent_at`
 
 ---
 
 ## Planned
 
-### Phase 5: Tracking and reminders
-- `/r/[code]` public tracking redirect with service-role click logging
-- Basic bot/scanner user-agent filtering
-- One-click unsubscribe flow (permanent per-business)
-- Cron job `/api/cron/reminders` for automatic reminders (3 days, one reminder max)
-
-### Phase 6: Dashboard
-- Real stat cards (sent, click rate, reminders, confirmed reviews) from DB
+### Phase 6: Dashboard polish
 - 30-day requests chart
-- Recent activity feed with status badges
-- Prominent "Send a request" quick action completing the 10-second flow
+- Faster quick-add customer flow (target <10 seconds)
+
+### Phase 7: Billing
 
 ### Phase 7: Billing
 - Plan constants and server-side limit enforcement

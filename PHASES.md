@@ -105,48 +105,55 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 4: Sending emails
-**Status:** Not started
+**Status:** Completed
 
 **Checklist:**
-- [ ] Templates page at `/app/templates`: edit request & reminder templates
-- [ ] Live preview with sample data
-- [ ] "Reset to default" button
-- [ ] `sendEmail()` function in `lib/email/` using Resend
-- [ ] HTML + plain-text email rendering with variable substitution
-- [ ] Short code generation (8 chars, cryptographically random)
-- [ ] Single send (creates review_request, sends email, updates status)
-- [ ] Bulk send to selected customers (respects limits)
-- [ ] Requests page at `/app/requests`: table with status, filters, row actions
-- [ ] Unsubscribe link in emails (signed token)
-- [ ] List-Unsubscribe header
+- [x] `resend` package installed; `lib/email/send.ts` wraps `sendEmail()` + `sendReviewEmail()`
+- [x] `lib/email/defaults.ts` (request + reminder defaults) and `lib/email/render.ts` (variable substitution, HTML + plain text, CTA button)
+- [x] `lib/utils/crypto.ts` — `generateShortCode()` (8-char alphanumeric, retry on collision), `signToken()`/`verifyToken()` for HMAC-signed unsubscribe tokens (30-day TTL)
+- [x] Templates page at `/app/templates`: edit request & reminder templates with tabs, live iframe preview, "Reset to default", test-send button (warns when Resend not configured)
+- [x] Templates server actions: `saveTemplate`, `resetTemplate`, `sendTestTemplateEmail`
+- [x] Single-send flow: `sendToOne` server action creates `review_requests` row, generates short_code, renders and sends email, updates `status='sent'|'failed'` with timestamps/errors
+- [x] "Add and send" flow wired in Add Customer dialog (new `addAndSendCustomer` server action)
+- [x] Bulk send: checkbox selection UI on Customers page + sticky action bar; `sendBulk` server action with 100/hour rate limit, 150ms spacing, eligibility checks (consent + email + not unsubscribed)
+- [x] Requests page at `/app/requests`: server-fetched list joined with customer, status badges, filters (all/sent/clicked/reviewed/failed), search, resend for failed, mark-reviewed row action
+- [x] Resend & mark-reviewed server actions (`resendRequest`, `markReviewed`)
+- [x] Signed unsubscribe tokens in every email + `List-Unsubscribe` + `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers
+- [x] Public `/r/[code]` tracking redirect (look up by short_code, mark clicked, increment click_count, show friendly CTA to Google review URL)
+- [x] Public `/unsubscribe/[token]` confirmation page + POST `/api/unsubscribe/[token]` for RFC 8058 one-click
+- [x] Supabase migration `00002_public_tracking.sql` adds RLS policies for anon read/update on review_requests/businesses/customers needed by public routes
+- [x] Dashboard updated with real 30-day stats (sent, click rate, clicks, marked reviewed), recent requests list, email-setup warning when Resend not configured
+- [x] Sidebar already includes Requests + Templates links
+- [x] `.env.example` lists `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS`, `UNSUBSCRIBE_SIGNING_SECRET`
 
 **Done when:**
-- Can send a review request email to a customer
-- Email renders correctly with replaced variables and working tracking link
-- Requests table shows sent requests with correct status
-- Templates can be edited, previewed, and reset
-- Bulk send works
+- [x] Can add a customer and "Add and send" queues a review request
+- [x] Bulk select → "Send review requests" queues to multiple customers
+- [x] Email renders correctly with replaced variables, big CTA button, and working tracking/unsubscribe links (HTML rendering verified via preview iframe; live delivery requires Resend API key)
+- [x] Requests table shows sent requests with correct status; resend + mark-reviewed work
+- [x] Templates can be edited, previewed live, reset to default, and test-sent to an email
+- [x] `/r/[code]` marks clicks and redirects users to the Google review URL; /unsubscribe/[token] marks the customer unsubscribed
+- [x] `npm run build` and `npm run lint` pass cleanly; dev server returns 200 on all Phase 4 routes
 
 ---
 
 ## Phase 5: Tracking and reminders
-**Status:** Not started
+**Status:** In progress (tracking shipped in Phase 4; reminders + bot detection remaining)
 
 **Checklist:**
-- [ ] `/r/[code]` public route: look up code server-side with service role
-- [ ] Log click event, increment click_count, set first_clicked_at, update status to 'clicked'
-- [ ] Bot/scanner detection (basic user-agent check)
-- [ ] 302 redirect to the business's Google review URL
-- [ ] Invalid code → friendly fallback page
-- [ ] `/unsubscribe/[token]` route: one-click unsubscribe, permanent record
+- [x] `/r/[code]` public route: look up code server-side, log click, set first_clicked_at, increment click_count, update status to 'clicked'
+- [x] Click redirects to the business's Google review URL (open in new tab with explicit button to avoid auto-redirect quirks with mail scanners)
+- [x] Invalid code → friendly fallback page
+- [x] `/unsubscribe/[token]` route: HMAC-signed token, confirmation page, `POST /api/unsubscribe/[token]` RFC 8058 one-click
+- [ ] Bot/scanner detection (basic user-agent check before counting clicks)
 - [ ] `POST /api/cron/reminders` protected by `CRON_SECRET`
 - [ ] Reminder logic: status='sent', not clicked, no reminder yet, sent_at > 3 days ago
 - [ ] Send reminder email once; set `reminder_sent_at`
 
 **Done when:**
-- Clicking an email link logs the click and redirects to Google
-- Clicking after first visit still redirects (and increments click_count)
-- Unsubscribing works and blocks future emails
+- [x] Clicking an email link logs the click and offers a clear button to Google
+- [x] Clicking after first visit still offers the link (and increments click_count)
+- [x] Unsubscribing works and blocks future emails
 - Cron job sends exactly one reminder after 3 days to non-clickers; clickers get none
 
 ---

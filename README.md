@@ -24,25 +24,33 @@ Local businesses live or die by their Google reviews, but asking every customer 
 
 ## Current functionality
 
-> **Status: Phase 3 (Customers) complete.**
+> **Status: Phase 4 (Sending emails) complete.**
 
 - Next.js 16 App Router app with TypeScript + Tailwind CSS v4
 - Supabase auth wired up (email/password + Google OAuth ready)
 - Route protection via middleware
-- Responsive app shell with sidebar navigation
+- Responsive app shell with sidebar navigation (Dashboard, Customers, Requests, Templates, Settings)
 - Login, signup, forgot-password pages
 - **3-step onboarding wizard:** business info → Google review link (validated) → email template with live preview
 - **Settings page:** edit business name, contact line, Google review link, reply-to email
-- Default email templates seeded automatically when a business is created
-- Email rendering engine (variables, HTML with CTA button, plain text, footer)
-- Dashboard with stat card placeholders (redirects to onboarding until setup is complete)
-- **Customers page:** add customer dialog (name/email/phone/consent), searchable/sortable table, per-row delete, unsubscribed badge, empty state
-- **CSV import:** auto column detection (name/email/phone variants), duplicate detection, per-row error report, bulk consent checkbox
-- Server-side enforcement: unsubscribed customers cannot be re-added, duplicates are detected, all inputs Zod-validated
-- Database migration for all tables with RLS
-- Full build and lint pass; dev server runs out of the box
+- Default request + reminder templates seeded automatically on business creation
+- Email rendering engine (variable substitution, HTML with CTA button, plain-text fallback, footer)
+- **Templates page (/app/templates):** tabs for request/reminder, live iframe preview with sample data, reset-to-default, send-test button (warns if Resend not configured)
+- Resend integration (`lib/email/send.ts`) with HTML + text, Reply-To, `List-Unsubscribe` + `List-Unsubscribe-Post=One-Click` headers
+- HMAC-signed unsubscribe tokens (30-day expiry, timing-safe compare) + one-click `POST /api/unsubscribe/[token]` endpoint
+- 8-character crypto-random short codes with collision-retry for tracking links
+- **Customers page:** add customer dialog (name/email/phone/consent, "Add and send"), bulk-select checkboxes + sticky send bar, searchable/sortable table, per-row delete, unsubscribed badge, empty state
+- **CSV import:** auto column detection (name/email/phone variants), duplicate detection, per-row error report, bulk consent checkbox, 5 MB cap
+- **Requests page (/app/requests):** status badges (Queued/Sent/Failed/Link clicked/Reviewed), filters, search, resend for failures, mark-reviewed action
+- Single-send server action (`sendToOne`) creates a `review_requests` row, generates a short code, sends the email, records `sent_at`/`error_message`; bulk send (`sendBulk`) with 100/hour rate limit, 150 ms spacing, eligibility checks (consent + email + not unsubscribed)
+- **Public tracking page (/r/[code]):** marks click, increments click_count, shows a friendly CTA pointing to the business's Google review URL
+- **Public unsubscribe page (/unsubscribe/[token]):** confirms the opt-out and permanently marks the customer unsubscribed
+- Dashboard with real 30-day stats (sent count, click rate, clicks, manually marked reviews), recent activity, and a banner warning when Resend env vars aren't configured
+- Server-side enforcement: ownership checks, RLS, unsubscribed blocking, duplicate detection, Zod validation on all inputs
+- Database migrations `00001_initial_schema.sql` + `00002_public_tracking.sql` with RLS policies for public click/unsubscribe endpoints
+- Full build and lint pass; dev server runs out of the box; routes return 200
 
-**Not yet implemented:** email sending (Resend), tracking links, reminders, requests table with status, templates UI page, billing, final landing page.
+**Not yet implemented:** automatic 3-day reminders (Phase 5), click bot filtering, billing, final landing page.
 
 ## Technology stack
 
@@ -144,9 +152,9 @@ Email deliverability requires domain verification with Resend (SPF, DKIM, DMARC 
 
 ## Current development status
 
-- **Phase:** 3 (Customers) — Complete
-- **Next phase:** Phase 4 — Sending emails (Resend integration, requests, templates page, short codes, bulk send, unsubscribe links)
-- App compiles, runs, and passes lint/build. Onboarding, settings, and customer management flows are built; end-to-end DB flows require Supabase credentials. Email sending comes in Phase 4.
+- **Phase:** 4 (Sending emails) — Complete
+- **Next phase:** Phase 5 — Tracking polish + automatic 3-day reminders (cron job, bot filtering)
+- App compiles, runs, and passes lint/build. Auth, onboarding, settings, customers, templates, requests, tracking, and unsubscribe flows are built. End-to-end email delivery requires a Resend API key + verified sending domain, and end-to-end DB flows require Supabase credentials with both migrations applied.
 
 ## Important limitations
 

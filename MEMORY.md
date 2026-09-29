@@ -37,16 +37,46 @@
 - **Delete confirm:** Uses native `confirm()` to keep things simple; can be swapped to a nicer modal later.
 - **Customer data fetch:** Done server-side on page load; mutations trigger `router.refresh()` to re-fetch after add/delete/import. Filter/sort are client-side on the current snapshot.
 
+- **Phase 4 (2026-09-29): Sending emails**
+  - Installed `resend` package.
+  - `src/lib/utils/crypto.ts`: `generateShortCode()` (8-char alphanumeric via `crypto.randomBytes` with collision retry), `signToken()`/`verifyToken()` for HMAC-SHA256-signed unsubscribe tokens (30-day TTL, base64url encoding, `timingSafeEqual`); fallback secret in dev, throws in prod without `UNSUBSCRIBE_SIGNING_SECRET`.
+  - `src/lib/email/send.ts`: Resend wrapper (`isEmailConfigured`, `sendEmail` with HTML/text/replyTo/headers), `sendReviewEmail` composes subject/body via template vars, sets `List-Unsubscribe` (both https POST endpoint and mailto fallback) and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers.
+  - `src/lib/email/unsubscribe.ts`: `performUnsubscribe` server-side helper (verifies HMAC token, marks the matching customer unsubscribed).
+  - `src/lib/validation/request.ts`: `sendRequestSchema`, `bulkSendSchema`, `updateTemplateSchema`, `markReviewedSchema`.
+  - `src/app/app/requests/actions/requests.ts`: server actions `sendToOne`, `sendBulk`, `resendRequest`, `markReviewed` — eligibility checks (consent + email + not unsubscribed + ownership), short-code generation with collision retry (5 attempts), 100-sends/hour rate-limit guard, 150ms delay between bulk sends, status lifecycle `queued → sent|failed` with `sent_at`/`error_message`.
+  - `src/app/app/customers/actions/add-and-send.ts`: combined `addAndSendCustomer` server action that creates/finds the customer then calls `sendToOne`.
+  - `src/app/app/templates/actions/templates.ts`: `saveTemplate` (upsert), `resetTemplate`, `sendTestTemplateEmail`.
+  - **Templates page** (`/app/templates`): server-fetches both templates; client uses Radix Tabs for request/reminder, subject/body inputs, live iframe preview rendering with sample data ("Sam"), reset-to-default, and test-send form (disabled with friendly message when Resend is unconfigured).
+  - Added `src/components/ui/tabs.tsx` and `src/components/ui/dropdown-menu.tsx` (Radix-based, shadcn-style).
+  - **Requests page** (`/app/requests`): server-fetches recent 200 requests joined with customer name/email, status filters (all/sent/clicked/reviewed/failed) with counts, search, per-row dropdown actions (Resend for failed rows, Mark reviewed), friendly disclaimer that we can't detect real Google reviews.
+  - **Customers page bulk UI:** added a master checkbox (selects all emailable customers in the filtered view), per-row checkboxes (disabled for unsubscribed/missing-email/no-consent rows), a sticky action bar showing count + "Send review requests" button, and wired `sendBulk` via `customer_ids_json`. "Add and send" checkbox now actually sends.
+  - **Public `/r/[code]` page:** looks up the request by short_code (using server client + RLS-opened policies), marks clicked / increments click_count, renders a friendly CTA page with a button that opens the business's Google review URL in a new tab (avoids bot auto-redirect), and shows a link-not-found state for bad codes.
+  - **Public `/unsubscribe/[token]` page:** verifies the HMAC token, shows a confirmation form with a "Confirm unsubscribe" button (server action marks the customer unsubscribed and re-renders with a success card), plus an already-unsubscribed shortcut.
+  - `POST /api/unsubscribe/[token]` route implements RFC 8058 one-click unsubscribe (expects `List-Unsubscribe=One-Click` form body).
+  - Supabase migration `00002_public_tracking.sql`: adds RLS policies that allow anon SELECT on `review_requests`/`businesses`/`customers` and anon UPDATE on `review_requests` (click tracking) and `customers` (unsubscribe), since these public routes aren't authenticated.
+  - **Dashboard** rewrote stat cards to query real 30-day counts (sent, clicks, click rate, manually marked reviews, customer total), added a recent-requests list with status badges, quick-action links, and an amber warning card when `RESEND_API_KEY`/`EMAIL_FROM_ADDRESS` are missing.
+  - Build and lint pass cleanly; dev server verified `/app/templates`, `/app/requests`, `/app/customers`, `/r/boguscode`, `/unsubscribe/badtoken` all 200.
+  - Docs updated: `PHASES.md` (Phases 4 complete, Phase 5 partially done), `ROADMAP.md`, `README.md`.
+
+## Decisions made
+
+- **Email in Phase 3:** Customers can be added without an email (stored as null) for future SMS features. But the list will still allow phone-only entries. Sending is blocked until Phase 4.
+- **CSV column mapping:** Auto-detects common header variants (name/customer_name/full_name, email/email_address/e-mail, phone/phone_number/mobile/tel). No manual column-mapping UI yet (per PRD it is optional; the auto-detect covers the majority of simple CSV exports).
+- **Deduplication on import:** Performed against existing customers + within-file duplicates (earlier row wins, later duplicates counted).
+- **Unsubscribe check on add:** Blocks re-adding an unsubscribed email at the server action level and returns a clear error message.
+- **Delete confirm:** Uses native `confirm()` to keep things simple; can be swapped to a nicer modal later.
+- **Customer data fetch:** Done server-side on page load; mutations trigger `router.refresh()` to re-fetch after add/delete/import. Filter/sort are client-side on the current snapshot.
+- **Public tracking/unsubscribe RLS:** Added permissive policies (`true` USING) because short_codes are 8-char random (62^8 ≈ 2e14) making enumeration infeasible; tokens are HMAC-signed with a server secret so they can't be forged. Public routes only need read+click/unsubscribe write — no broad enumeration endpoints.
+- **Tracking page UX:** Instead of an auto-302-redirect (which mail scanners trigger, inflating click counts and opening Google for bots), Phase 4 shows a clear "Open Google Reviews" button. Bot user-agent filtering comes in Phase 5.
+- **Bulk-send form contract:** Server action reads `customer_ids_json` (JSON array) rather than repeated FormData fields — simpler for the client to construct.
+- **Dashboard Date.now lint:** Server component uses `Date.now` for the 30-day window; disabled the react-hooks/purity rule because RSC renders don't need idempotence the way client renders do.
+
 ## Next up
 
-**Phase 4: Sending emails**
-- Wire up Resend in `sendEmail()` (API call, HTML + plain text)
-- Build Templates page at `/app/templates` for editing both request + reminder templates with live preview + reset
-- Short code generation (8-char crypto-random, stored on review_requests)
-- Single and bulk send server actions
-- Build Requests page with table (status, clicks, reminders) and filters
-- Signed one-click unsubscribe links (with crypto signing secret)
-- List-Unsubscribe header on every email
+**Phase 5: Tracking polish + reminders**
+- Bot/scanner user-agent filtering on `/r/[code]` (so link scanners don't inflate click counts)
+- `POST /api/cron/reminders` protected by `CRON_SECRET`
+- Reminder logic: `status='sent'`, not clicked, no reminder yet, `sent_at` > 3 days ago; send reminder email once and set `reminder_sent_at`
 
 ## Open questions
 
