@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -32,9 +33,11 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back, {business.name}.</p>
         </div>
-        <Button size="lg">
-          <Send className="mr-2 h-4 w-4" />
-          Send a request
+        <Button asChild size="lg">
+          <Link href="/app/customers">
+            <Send className="mr-2 h-4 w-4" />
+            Send a request
+          </Link>
         </Button>
       </div>
 

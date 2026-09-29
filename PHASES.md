@@ -80,23 +80,27 @@ Build one phase at a time. At the end of each phase, list what was done and how 
 ---
 
 ## Phase 3: Customers
-**Status:** Not started
+**Status:** Completed
 
 **Checklist:**
-- [ ] Customers page at `/app/customers`
-- [ ] Add customer form: name, email, optional phone, required consent checkbox
-- [ ] "Add and send" quick action
-- [ ] Customer list table with search, sort, delete
-- [ ] CSV import (Papaparse) with column mapping, duplicate detection, row-level errors
-- [ ] Bulk consent checkbox for CSV import
-- [ ] Unsubscribed customers visibly marked and blocked from sending
-- [ ] Server actions for customer CRUD
+- [x] Customers page at `/app/customers` with server-fetched list
+- [x] Add customer dialog: name, email, optional phone, required consent checkbox
+- [x] "Add and send" checkbox (customer saved; sending wired in Phase 4)
+- [x] Customer list table with client-side search, sort (name/email/date), and delete
+- [x] CSV import (Papaparse): auto column detection, duplicate detection by email, row-level error report, 5 MB cap
+- [x] Bulk consent checkbox for CSV import (required)
+- [x] Unsubscribed customers visibly marked (red badge) and server-side blocked from re-add
+- [x] Server actions: addCustomer, deleteCustomer, importCustomers with Zod validation
+- [x] Empty state with "Add your first customer" CTA
+- [x] Table + Dialog shadcn/ui components added
+- [x] Dashboard "Send a request" CTA links to Customers page
 
 **Done when:**
-- Can add a customer manually
-- Can import a CSV and see results (successes/errors/duplicates)
-- Cannot email unsubscribed customers
-- Customer list search and sort work
+- [x] Can add a customer manually via dialog (validated; consent required)
+- [x] Can import a CSV and see results (added/duplicates/unsubscribed/row errors)
+- [x] Unsubscribed customers blocked from being re-added
+- [x] Customer list search and sort work
+- [x] Build and lint pass cleanly
 
 ---
 

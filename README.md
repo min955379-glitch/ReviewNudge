@@ -24,7 +24,7 @@ Local businesses live or die by their Google reviews, but asking every customer 
 
 ## Current functionality
 
-> **Status: Phase 2 (Business setup) complete.**
+> **Status: Phase 3 (Customers) complete.**
 
 - Next.js 16 App Router app with TypeScript + Tailwind CSS v4
 - Supabase auth wired up (email/password + Google OAuth ready)
@@ -36,11 +36,13 @@ Local businesses live or die by their Google reviews, but asking every customer 
 - Default email templates seeded automatically when a business is created
 - Email rendering engine (variables, HTML with CTA button, plain text, footer)
 - Dashboard with stat card placeholders (redirects to onboarding until setup is complete)
+- **Customers page:** add customer dialog (name/email/phone/consent), searchable/sortable table, per-row delete, unsubscribed badge, empty state
+- **CSV import:** auto column detection (name/email/phone variants), duplicate detection, per-row error report, bulk consent checkbox
+- Server-side enforcement: unsubscribed customers cannot be re-added, duplicates are detected, all inputs Zod-validated
 - Database migration for all tables with RLS
-- Placeholder pages for routes coming in later phases
 - Full build and lint pass; dev server runs out of the box
 
-**Not yet implemented:** customer management, CSV import, email sending (Resend), tracking links, reminders, billing, final landing page.
+**Not yet implemented:** email sending (Resend), tracking links, reminders, requests table with status, templates UI page, billing, final landing page.
 
 ## Technology stack
 
@@ -142,9 +144,9 @@ Email deliverability requires domain verification with Resend (SPF, DKIM, DMARC 
 
 ## Current development status
 
-- **Phase:** 2 (Business setup) — Complete
-- **Next phase:** Phase 3 — Customers (add/list/search/delete, CSV import)
-- App compiles, runs, and passes lint/build. Onboarding and settings forms are built; auth, onboarding, and settings flows require Supabase credentials to exercise end-to-end. Email sending (Resend) comes in Phase 4.
+- **Phase:** 3 (Customers) — Complete
+- **Next phase:** Phase 4 — Sending emails (Resend integration, requests, templates page, short codes, bulk send, unsubscribe links)
+- App compiles, runs, and passes lint/build. Onboarding, settings, and customer management flows are built; end-to-end DB flows require Supabase credentials. Email sending comes in Phase 4.
 
 ## Important limitations
 
