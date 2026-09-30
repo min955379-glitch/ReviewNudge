@@ -97,7 +97,7 @@ export interface Database {
           business_id: string
           customer_id: string
           short_code: string
-          status: "queued" | "sent" | "failed" | "clicked"
+          status: "queued" | "sent" | "failed" | "clicked" | "reviewed"
           sent_at: string | null
           first_clicked_at: string | null
           click_count: number
@@ -112,7 +112,7 @@ export interface Database {
           business_id: string
           customer_id: string
           short_code: string
-          status?: "queued" | "sent" | "failed" | "clicked"
+          status?: "queued" | "sent" | "failed" | "clicked" | "reviewed"
           sent_at?: string | null
           first_clicked_at?: string | null
           click_count?: number
@@ -127,7 +127,7 @@ export interface Database {
           business_id?: string
           customer_id?: string
           short_code?: string
-          status?: "queued" | "sent" | "failed" | "clicked"
+          status?: "queued" | "sent" | "failed" | "clicked" | "reviewed"
           sent_at?: string | null
           first_clicked_at?: string | null
           click_count?: number
@@ -142,63 +142,55 @@ export interface Database {
         Row: {
           id: string
           business_id: string
-          kind: "request" | "reminder"
-          subject: string
-          body: string
+          request_subject: string
+          request_body: string
+          reminder_subject: string
+          reminder_body: string
+          updated_at: string
         }
         Insert: {
           id?: string
           business_id: string
-          kind: "request" | "reminder"
-          subject: string
-          body: string
+          request_subject?: string
+          request_body?: string
+          reminder_subject?: string
+          reminder_body?: string
+          updated_at?: string
         }
         Update: {
           id?: string
           business_id?: string
-          kind?: "request" | "reminder"
-          subject?: string
-          body?: string
-        }
-      }
-      unsubscribes: {
-        Row: {
-          id: string
-          business_id: string
-          email: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          business_id: string
-          email: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          business_id?: string
-          email?: string
-          created_at?: string
+          request_subject?: string
+          request_body?: string
+          reminder_subject?: string
+          reminder_body?: string
+          updated_at?: string
         }
       }
       click_events: {
         Row: {
           id: string
-          review_request_id: string
-          clicked_at: string
+          request_id: string
+          ip_hash: string | null
           user_agent: string | null
+          is_bot: boolean
+          created_at: string
         }
         Insert: {
           id?: string
-          review_request_id: string
-          clicked_at?: string
+          request_id: string
+          ip_hash?: string | null
           user_agent?: string | null
+          is_bot?: boolean
+          created_at?: string
         }
         Update: {
           id?: string
-          review_request_id?: string
-          clicked_at?: string
+          request_id?: string
+          ip_hash?: string | null
           user_agent?: string | null
+          is_bot?: boolean
+          created_at?: string
         }
       }
     }

@@ -74,15 +74,20 @@ Last updated: 2026-09-29
 
 ## Next
 
-### Launch verification (against fresh test Supabase `nnnsbkgtdmvmdmusxjqa`, 2026-09-30)
+### Launch verification (against fresh test Supabase `nnnsbkgtdmvmdmusxjqa` + Resend sandbox, 2026-09-30)
 - ✅ Migrations applied via `run-all-migrations-safe.sql` (with fix for missing `private` schema) + `repair-legacy-schema.sql` (with fix to skip legacy backfill when `kind`/`subject` columns don't exist). Both scripts are now idempotent on fresh projects.
 - ✅ Anon RLS test passes (`bash scripts/verify-anon-rls.sh` prints PASS).
 - ✅ All five tables respond 200 with the production column set via service-role API.
 - ✅ Dev server boots, loads `.env.local` against new project; all public pages return 200.
-- ✅ Middleware redirects unauth `/app` → `/login` (307); cron returns 401 without secret and structured JSON `{ok:false, errors:["Resend not configured; skipping reminders."]}` with valid secret; `/r/<bogus>` and `/unsubscribe/<bad>` render their pages; `/api/webhooks/billing` compiled; public 404 works on non-existent paths like `/pricing/nope`.
+- ✅ Middleware redirects unauth `/app` → `/login` (307); cron returns 401 without secret and structured JSON `{ok:false, errors:[...]}` with valid secret; `/r/<bogus>` and `/unsubscribe/<bad>` render their pages; `/api/webhooks/billing` compiled; public 404 works on non-existent paths like `/pricing/nope`.
+- ✅ **T4/T5/T7 email send + reminder cron**: `GET /api/cron/reminders` with a backdated `review_requests.sent_at` (4 days old) → Resend API accepted, `reminder_sent_at` stamped, DB `updated_at` correct, response `{ok:true, considered:1, sent:1, failed:0, ...}`. Re-running cron with no eligible rows returns `considered:0, sent:0` (idempotent — no double-send).
+- ✅ **T6 click tracking**: `GET /r/<code>` with a human-looking User-Agent → `review_requests.status` flipped to `clicked`, `first_clicked_at` stamped, `click_count` incremented, a hashed-IP row inserted into `click_events` (ip_hash, user_agent, is_bot=false, created_at). Bots (curl, crawler, etc.) are excluded via `BOT_UA_RE`.
+- ✅ **One-click unsubscribe**: `POST /api/unsubscribe/<token>` with form body `List-Unsubscribe=One-Click` (RFC 8058) returns 200 "Unsubscribed" and flips `customers.unsubscribed=true`. The `List-Unsubscribe` + `List-Unsubscribe-Post` headers are present on outgoing emails. The `/unsubscribe/<token>` HTML confirmation page renders 200.
 - ⚠️ End-to-end authenticated cookie flow over curl returned 307→/login during verification — the cause was the test JWT being issued before the user was auto-confirmed, then deleted by cleanup before the follow-up request hit (race in the verification script), not a code defect. Supabase signup + email confirm + token issuance work correctly against the new project when called directly against the auth API. Real-browser login via the UI is the definitive check (can't be driven from this sandbox without Playwright).
-- ⏳ Email send/click/unsubscribe (T4–T6) — awaiting Resend credentials.
-- ⏳ Polar Sandbox (T10) — awaiting Polar sandbox credentials + public deploy for webhook.
+- ⚠️ **Code fix applied during verification**: `message_templates` and `click_events` were migrated to the new single-row-per-business / `request_id` schema, but several code paths (cron, initial-send actions, templates UI, onboarding, business seeding) still referenced the legacy `kind/subject/body` and `review_request_id/clicked_at` columns. Patched all of them to use the new schema; regenerated `database.types.ts` to match; `npx tsc --noEmit` is clean.
+- ⚠️ **Code fix applied during verification**: the tracking page `/r/[code]` only updated `review_requests` but never inserted a `click_events` analytics row. Added the insert with a sha256-hashed IP (using `UNSUBSCRIBE_SIGNING_SECRET` as salt) so the dashboard's click analytics table has data.
+- ⏳ **T2 cross-tenant RLS isolation** — SQL script ready in `scripts/verify-rls-isolation.sh`, needs to be run manually in Supabase SQL Editor with two real accounts.
+- ⏳ **T10 Polar Sandbox** — awaiting Polar sandbox credentials (C6–C11) + public deploy URL for the webhook.
 - ⏳ 375px mobile pass — not done in sandbox.
 
 ### Verified against previous test project `kajolpuntjurjrozovnq` (2026-09-29)

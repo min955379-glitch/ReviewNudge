@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button"
 import { headers } from "next/headers"
 import Link from "next/link"
 import { signToken } from "@/lib/utils/crypto"
+import { createHash, randomBytes } from "crypto"
 
 interface Params { params: Promise<{ code: string }> }
 
 type TReq = {
   id: string
-  status: "queued" | "sent" | "failed" | "clicked"
+  status: "queued" | "sent" | "failed" | "clicked" | "reviewed"
   first_clicked_at: string | null
   click_count: number
   business: { id: string; name: string; google_review_url: string } | null
@@ -79,19 +80,49 @@ export default async function TrackingRedirectPage({ params }: Params) {
 
   // Only count human-looking traffic as a click. Bots, link scanners, and link
   // previews from email/slack/whatsapp still see the review page but don't
-  // update status or click_count.
+  // update status or click_count. We also log an anonymized row in click_events
+  // for dashboard analytics.
   if (!isBot) {
-    type ChainableUpdate = { update: (v: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } }
-    const rq = supabase.from("review_requests") as unknown as ChainableUpdate
-    if (req.status !== "clicked" && !req.first_clicked_at) {
-      await rq.update({
-        status: "clicked",
-        first_clicked_at: new Date().toISOString(),
-        click_count: (req.click_count ?? 0) + 1,
-      }).eq("id", req.id)
-    } else if (req.first_clicked_at) {
-      await rq.update({ click_count: (req.click_count ?? 1) + 1 }).eq("id", req.id)
-    }
+    const ipRaw = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? requestHeaders.get("x-real-ip")
+      ?? "unknown"
+    const ipSalt = process.env.UNSUBSCRIBE_SIGNING_SECRET?.slice(0, 16) ?? "reviewnudge-salt"
+    const ipHash = createHash("sha256").update(ipRaw + "|" + ipSalt).digest("hex").slice(0, 32)
+    const ua = requestHeaders.get("user-agent") ?? null
+
+    const now = new Date().toISOString()
+    const isFirstClick = req.status !== "clicked" && req.status !== "reviewed" && !req.first_clicked_at
+    const newCount = (req.click_count ?? 0) + 1
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rq = supabase as any
+    const { error: updErr } = await rq
+      .from("review_requests")
+      .update({
+        status: isFirstClick ? "clicked" : req.status,
+        first_clicked_at: isFirstClick ? now : req.first_clicked_at,
+        click_count: newCount,
+      })
+      .eq("id", req.id)
+
+    // Best-effort analytics row; don't block render if it fails. The column
+    // name `request_id` may not match the stale generated TS types for
+    // click_events (which still reference legacy `review_request_id`), so cast
+    // through unknown to bypass any compile-time mismatch and always insert at
+    // runtime with the real schema column.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const evSb = supabase as any
+    const { data: evData, error: evErr } = await evSb.from("click_events").insert({
+      request_id: req.id,
+      ip_hash: ipHash,
+      user_agent: ua,
+      is_bot: false,
+      created_at: now,
+    }).select()
+
+    if (updErr) console.error("Failed to record click on review_request:", JSON.stringify(updErr))
+    if (evErr) console.error("Failed to insert click_event:", JSON.stringify(evErr))
+    if (!evErr && !evData) console.error("click_events insert returned no data and no error")
   }
 
   return (

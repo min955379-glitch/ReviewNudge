@@ -29,12 +29,37 @@ function quotaError(biz: Biz, used: number, limit: number): string {
   return `You've reached your monthly limit of ${limit} emails on the Free plan (${used} sent). Upgrade to Pro to send more.`
 }
 
-async function getTemplates(sb: Qb, businessId: string): Promise<Record<string, Tpl>> {
-  const res = await sb.from("message_templates").select("*").eq("business_id", businessId)
-  const tpls = (res.data as Tpl[] | null) ?? []
-  const byKind: Record<string, Tpl> = {}
-  for (const t of tpls) byKind[t.kind] = t
-  return byKind
+type LoadedTemplates = {
+  request: { subject: string; body: string }
+  reminder: { subject: string; body: string }
+}
+
+const DEFAULT_REQ_SUBJECT = "How did we do, {{customer_name}}?"
+const DEFAULT_REQ_BODY =
+  "Hi {{customer_name}},\n\n" +
+  "Thanks for choosing {{business_name}}. If you have a minute, we'd really appreciate an honest review on Google:\n\n" +
+  "{{review_link}}\n\n" +
+  "Unsubscribe: {{unsubscribe_link}}"
+const DEFAULT_REM_SUBJECT = "A quick reminder from {{business_name}}"
+const DEFAULT_REM_BODY =
+  "Hi {{customer_name}},\n\n" +
+  "Just a friendly reminder in case you missed our earlier message. Your honest feedback helps other people find us:\n\n" +
+  "{{review_link}}\n\n" +
+  "Unsubscribe: {{unsubscribe_link}}"
+
+async function getTemplates(sb: Qb, businessId: string): Promise<LoadedTemplates> {
+  const res = await sb.from("message_templates").select("*").eq("business_id", businessId).maybeSingle()
+  const row = (res.data as Partial<Tpl> | null) ?? null
+  return {
+    request: {
+      subject: (row?.request_subject as string | undefined)?.trim() || DEFAULT_REQ_SUBJECT,
+      body: (row?.request_body as string | undefined)?.trim() || DEFAULT_REQ_BODY,
+    },
+    reminder: {
+      subject: (row?.reminder_subject as string | undefined)?.trim() || DEFAULT_REM_SUBJECT,
+      body: (row?.reminder_body as string | undefined)?.trim() || DEFAULT_REM_BODY,
+    },
+  }
 }
 
 async function getEligibleCustomer(
@@ -60,7 +85,7 @@ async function createAndSendOne(
   sb: Qb,
   business: Biz,
   customer: Cust,
-  templates: Record<string, Tpl>,
+  templates: LoadedTemplates,
   isReminder = false
 ): Promise<{ request: Req | null; error?: string }> {
   // Generate unique short code

@@ -5,7 +5,7 @@ import { Step2Form } from "./step-2-form"
 import { Step3Form } from "./step-3-form"
 
 type Business = Database["public"]["Tables"]["businesses"]["Row"]
-type Template = { subject: string; body: string }
+type Template = { request_subject: string | null; request_body: string | null }
 
 function Guard({ step }: { step: number }) {
   return (
@@ -44,9 +44,8 @@ export default async function OnboardingPage({
   if (business) {
     const tplResult = await supabase
       .from("message_templates")
-      .select("subject, body")
+      .select("request_subject, request_body")
       .eq("business_id", business.id)
-      .eq("kind", "request")
       .maybeSingle()
     if (tplResult.data) requestTemplate = tplResult.data as Template
   }
@@ -88,8 +87,8 @@ export default async function OnboardingPage({
   return (
     <Step3Form
       businessName={business!.name}
-      defaultSubject={requestTemplate?.subject ?? ""}
-      defaultBody={requestTemplate?.body ?? ""}
+      defaultSubject={requestTemplate?.request_subject ?? ""}
+      defaultBody={requestTemplate?.request_body ?? ""}
       googleReviewUrl={business!.google_review_url}
       ownerEmail={user.email ?? ""}
     />

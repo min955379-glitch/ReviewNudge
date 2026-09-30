@@ -21,16 +21,8 @@ type TemplateState = {
   message?: string
 } | null
 
-type TermRes = Promise<{ data: unknown; error: { message: string } | null }>
-interface Chain {
-  select: (...a: unknown[]) => Chain
-  insert: (...a: unknown[]) => Chain & TermRes
-  update: (...a: unknown[]) => Chain & TermRes
-  delete: () => Chain & TermRes
-  eq: (...a: unknown[]) => Chain & TermRes
-  maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>
-}
-type Qb = { from: (t: string) => Chain }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Qb = any
 
 function flatten(err: { fieldErrors?: Record<string, string[] | undefined> }): FieldErrors {
   const out: FieldErrors = {}
@@ -49,9 +41,28 @@ function toValues(formData: FormData): Record<string, string> {
 
 function appUrl(): string { return process.env.NEXT_PUBLIC_APP_URL || "" }
 
+/**
+ * Map the UI's "kind" (request|reminder) to the new single-row-per-business
+ * schema columns: request_subject/request_body and reminder_subject/reminder_body.
+ */
+function columnsFor(kind: "request" | "reminder") {
+  if (kind === "reminder") {
+    return { subject: "reminder_subject", body: "reminder_body" as const }
+  }
+  return { subject: "request_subject", body: "request_body" as const }
+}
+
+async function ensureTemplateRow(sb: Qb, businessId: string): Promise<void> {
+  // Ensure the business has a single message_templates row; rely on defaults.
+  const { data } = await sb.from("message_templates").select("id").eq("business_id", businessId).maybeSingle()
+  if (!data) {
+    await sb.from("message_templates").insert({ business_id: businessId })
+  }
+}
+
 export async function saveTemplate(_prev: TemplateState, formData: FormData): Promise<TemplateState> {
   const { supabase, business } = await requireBusiness()
-  const sb = supabase as unknown as Qb
+  const sb = supabase as Qb
   const raw = toValues(formData)
   const kind = raw.kind === "reminder" ? "reminder" : "request"
   const parsed = updateTemplateSchema.safeParse({
@@ -61,33 +72,27 @@ export async function saveTemplate(_prev: TemplateState, formData: FormData): Pr
   })
   if (!parsed.success) return { errors: flatten(parsed.error.flatten()), values: raw }
 
-  // Upsert: update if exists, insert if not
-  const existing = await sb
-    .from("message_templates")
-    .select("id")
-    .eq("business_id", business.id)
-    .eq("kind", kind)
-    .maybeSingle()
-  let res
-  if (existing.data) {
-    res = await sb.from("message_templates").update({ subject: parsed.data.subject, body: parsed.data.body }).eq("business_id", business.id).eq("kind", kind)
-  } else {
-    res = await sb.from("message_templates").insert({ business_id: business.id, kind, subject: parsed.data.subject, body: parsed.data.body })
-  }
+  await ensureTemplateRow(sb, business.id)
+  const cols = columnsFor(kind)
+  const patch: Record<string, string> = { [cols.subject]: parsed.data.subject, [cols.body]: parsed.data.body, updated_at: new Date().toISOString() }
+  const res = await sb.from("message_templates").update(patch).eq("business_id", business.id)
   if (res.error) return { errors: { _form: res.error.message }, values: raw }
   return { success: true, message: "Template saved." }
 }
 
 export async function resetTemplate(_prev: TemplateState, formData: FormData): Promise<TemplateState> {
   const { supabase, business } = await requireBusiness()
-  const sb = supabase as unknown as Qb
+  const sb = supabase as Qb
   const kind = String(formData.get("kind") ?? "request") as "request" | "reminder"
-  const defaults = kind === "reminder"
-    ? { subject: DEFAULT_REMINDER_SUBJECT, body: DEFAULT_REMINDER_BODY }
-    : { subject: DEFAULT_REQUEST_SUBJECT, body: DEFAULT_REQUEST_BODY }
-  const res = await sb.from("message_templates").update(defaults).eq("business_id", business.id).eq("kind", kind)
+  await ensureTemplateRow(sb, business.id)
+  const cols = columnsFor(kind)
+  const defaults =
+    kind === "reminder"
+      ? { [cols.subject]: DEFAULT_REMINDER_SUBJECT, [cols.body]: DEFAULT_REMINDER_BODY }
+      : { [cols.subject]: DEFAULT_REQUEST_SUBJECT, [cols.body]: DEFAULT_REQUEST_BODY }
+  const res = await sb.from("message_templates").update({ ...defaults, updated_at: new Date().toISOString() }).eq("business_id", business.id)
   if (res.error) return { errors: { _form: res.error.message } }
-  return { success: true, message: "Reset to default.", values: { ...defaults, kind } }
+  return { success: true, message: "Reset to default.", values: { subject: defaults[cols.subject], body: defaults[cols.body], kind } }
 }
 
 export async function sendTestTemplateEmail(_prev: TemplateState, formData: FormData): Promise<TemplateState> {

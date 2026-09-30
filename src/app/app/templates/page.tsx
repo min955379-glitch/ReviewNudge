@@ -1,10 +1,17 @@
 import { redirect } from "next/navigation"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { requireBusiness } from "@/lib/supabase/require-user"
-import type { Database } from "@/lib/supabase/database.types"
 import { TemplatesClient } from "./templates-client"
 
-type Template = Database["public"]["Tables"]["message_templates"]["Row"]
+type TemplateRow = {
+  id: string
+  business_id: string
+  request_subject: string | null
+  request_body: string | null
+  reminder_subject: string | null
+  reminder_body: string | null
+  updated_at: string | null
+} | null
 
 export default async function TemplatesPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -21,10 +28,8 @@ export default async function TemplatesPage() {
   const { supabase, business } = await requireBusiness()
   if (!business.google_review_url) redirect(`/app/onboarding?step=${business.name ? 2 : 1}`)
 
-  const res = await supabase.from("message_templates").select("*").eq("business_id", business.id)
-  const templates = (res.data as Template[] | null) ?? []
-  const requestTpl = templates.find((t) => t.kind === "request")
-  const reminderTpl = templates.find((t) => t.kind === "reminder")
+  const res = await supabase.from("message_templates").select("*").eq("business_id", business.id).maybeSingle()
+  const row = (res.data as TemplateRow) ?? null
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -43,12 +48,12 @@ export default async function TemplatesPage() {
         mailingAddress={(business as { mailing_address?: string }).mailing_address ?? undefined}
         reviewUrl={business.google_review_url}
         initialRequest={{
-          subject: requestTpl?.subject ?? "",
-          body: requestTpl?.body ?? "",
+          subject: row?.request_subject ?? "",
+          body: row?.request_body ?? "",
         }}
         initialReminder={{
-          subject: reminderTpl?.subject ?? "",
-          body: reminderTpl?.body ?? "",
+          subject: row?.reminder_subject ?? "",
+          body: row?.reminder_body ?? "",
         }}
         emailConfigured={!!process.env.RESEND_API_KEY && !!process.env.EMAIL_FROM_ADDRESS}
       />

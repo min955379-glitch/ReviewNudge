@@ -100,10 +100,13 @@ export async function createBusiness(_prev: StepState, formData: FormData): Prom
 
   const tplRes = (await sb
     .from("message_templates")
-    .insert([
-      { business_id: created.id, kind: "request", subject: DEFAULT_REQUEST_SUBJECT, body: DEFAULT_REQUEST_BODY },
-      { business_id: created.id, kind: "reminder", subject: DEFAULT_REMINDER_SUBJECT, body: DEFAULT_REMINDER_BODY },
-    ] as TplInsert[])
+    .insert({
+      business_id: created.id,
+      request_subject: DEFAULT_REQUEST_SUBJECT,
+      request_body: DEFAULT_REQUEST_BODY,
+      reminder_subject: DEFAULT_REMINDER_SUBJECT,
+      reminder_body: DEFAULT_REMINDER_BODY,
+    })
     .select()) as unknown as QueryRes
   if (tplRes.error) console.error("Failed to seed default templates:", tplRes.error)
 
@@ -140,11 +143,21 @@ export async function saveOnboardingStep3(_prev: StepState, formData: FormData):
   const parsed = onboardingStep3Schema.safeParse(raw)
   if (!parsed.success) return { errors: flatten(parsed.error.flatten()), values: raw }
 
-  const res = await sb
-    .from("message_templates")
-    .update({ subject: parsed.data.request_subject, body: parsed.data.request_body } as TplUpdate)
-    .eq("business_id", business.id)
-    .eq("kind", "request")
+  // Ensure the single templates row exists, then update request columns.
+  const { data: existing } = await sb.from("message_templates").select("id").eq("business_id", business.id).maybeSingle()
+  let res
+  if (!existing) {
+    res = await sb.from("message_templates").insert({
+      business_id: business.id,
+      request_subject: parsed.data.request_subject,
+      request_body: parsed.data.request_body,
+    })
+  } else {
+    res = await sb
+      .from("message_templates")
+      .update({ request_subject: parsed.data.request_subject, request_body: parsed.data.request_body, updated_at: new Date().toISOString() })
+      .eq("business_id", business.id)
+  }
 
   if (res.error) return { errors: { _form: res.error.message }, values: raw }
   redirect("/app")
@@ -180,12 +193,21 @@ export async function resetRequestTemplate() {
   const { supabase, user } = await requireUser()
   const sb = supabase as unknown as Sb
   const business = await getCurrentBusiness(sb, user.id)
-  const { error } = await sb
-    .from("message_templates")
-    .update({ subject: DEFAULT_REQUEST_SUBJECT, body: DEFAULT_REQUEST_BODY } as TplUpdate)
-    .eq("business_id", business.id)
-    .eq("kind", "request")
-  if (error) return { ok: false, error: error.message }
+  const { data: existing } = await sb.from("message_templates").select("id").eq("business_id", business.id).maybeSingle()
+  let res
+  if (!existing) {
+    res = await sb.from("message_templates").insert({
+      business_id: business.id,
+      request_subject: DEFAULT_REQUEST_SUBJECT,
+      request_body: DEFAULT_REQUEST_BODY,
+    })
+  } else {
+    res = await sb
+      .from("message_templates")
+      .update({ request_subject: DEFAULT_REQUEST_SUBJECT, request_body: DEFAULT_REQUEST_BODY, updated_at: new Date().toISOString() })
+      .eq("business_id", business.id)
+  }
+  if (res.error) return { ok: false, error: res.error.message }
   return { ok: true }
 }
 
@@ -194,11 +216,20 @@ export async function resetReminderTemplate() {
   const { supabase, user } = await requireUser()
   const sb = supabase as unknown as Sb
   const business = await getCurrentBusiness(sb, user.id)
-  const { error } = await sb
-    .from("message_templates")
-    .update({ subject: DEFAULT_REMINDER_SUBJECT, body: DEFAULT_REMINDER_BODY } as TplUpdate)
-    .eq("business_id", business.id)
-    .eq("kind", "reminder")
-  if (error) return { ok: false, error: error.message }
+  const { data: existing } = await sb.from("message_templates").select("id").eq("business_id", business.id).maybeSingle()
+  let res
+  if (!existing) {
+    res = await sb.from("message_templates").insert({
+      business_id: business.id,
+      reminder_subject: DEFAULT_REMINDER_SUBJECT,
+      reminder_body: DEFAULT_REMINDER_BODY,
+    })
+  } else {
+    res = await sb
+      .from("message_templates")
+      .update({ reminder_subject: DEFAULT_REMINDER_SUBJECT, reminder_body: DEFAULT_REMINDER_BODY, updated_at: new Date().toISOString() })
+      .eq("business_id", business.id)
+  }
+  if (res.error) return { ok: false, error: res.error.message }
   return { ok: true }
 }

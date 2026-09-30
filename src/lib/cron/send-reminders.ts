@@ -64,12 +64,47 @@ function appUrl(): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = any
 
-async function getTemplates(sb: Sb, businessId: string): Promise<Record<string, Tpl>> {
-  const res = await sb.from("message_templates").select("*").eq("business_id", businessId)
-  const tpls = (res.data as Tpl[] | null) ?? []
-  const byKind: Record<string, Tpl> = {}
-  for (const t of tpls) byKind[t.kind] = t
-  return byKind
+type TemplatesView = {
+  request_subject: string | null
+  request_body: string | null
+  reminder_subject: string | null
+  reminder_body: string | null
+}
+
+/**
+ * Load the single message_templates row for a business. The new schema stores
+ * both request and reminder copy on one row keyed by business_id. Returns
+ * normalized subject/body values with sensible defaults if the row or a field
+ * is empty (so cron degrades gracefully on older/partial seeds).
+ */
+async function getTemplates(
+  sb: Sb,
+  businessId: string
+): Promise<{ request: { subject: string; body: string }; reminder: { subject: string; body: string } }> {
+  const res = await sb.from("message_templates").select("*").eq("business_id", businessId).maybeSingle()
+  const row = (res.data as TemplatesView | null) ?? null
+  const DEFAULT_REQ_SUBJECT = "How did we do, {{customer_name}}?"
+  const DEFAULT_REQ_BODY =
+    "Hi {{customer_name}},\n\n" +
+    "Thanks for choosing {{business_name}}. If you have a minute, we'd really appreciate an honest review on Google:\n\n" +
+    "{{review_link}}\n\n" +
+    "Unsubscribe: {{unsubscribe_link}}"
+  const DEFAULT_REM_SUBJECT = "A quick reminder from {{business_name}}"
+  const DEFAULT_REM_BODY =
+    "Hi {{customer_name}},\n\n" +
+    "Just a friendly reminder in case you missed our earlier message. Your honest feedback helps other people find us:\n\n" +
+    "{{review_link}}\n\n" +
+    "Unsubscribe: {{unsubscribe_link}}"
+  return {
+    request: {
+      subject: row?.request_subject?.trim() || DEFAULT_REQ_SUBJECT,
+      body: row?.request_body?.trim() || DEFAULT_REQ_BODY,
+    },
+    reminder: {
+      subject: row?.reminder_subject?.trim() || DEFAULT_REM_SUBJECT,
+      body: row?.reminder_body?.trim() || DEFAULT_REM_BODY,
+    },
+  }
 }
 
 /**
@@ -89,9 +124,9 @@ async function sendReminderForRow(
   business: Biz,
   customer: Cust,
   request: Req,
-  templates: Record<string, Tpl>,
+  templates: Awaited<ReturnType<typeof getTemplates>>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const tpl = templates.reminder || templates.request
+  const tpl = templates.reminder ?? templates.request
   if (!tpl) return { ok: false, error: "No reminder template configured." }
 
   const reviewLink = `${appUrl()}/r/${request.short_code}`
