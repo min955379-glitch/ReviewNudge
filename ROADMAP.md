@@ -74,7 +74,18 @@ Last updated: 2026-09-29
 
 ## Next
 
-### Launch verification (against test Supabase `kajolpuntjurjrozovnq`, 2026-09-29)
+### Launch verification (against fresh test Supabase `nnnsbkgtdmvmdmusxjqa`, 2026-09-30)
+- ✅ Migrations applied via `run-all-migrations-safe.sql` (with fix for missing `private` schema) + `repair-legacy-schema.sql` (with fix to skip legacy backfill when `kind`/`subject` columns don't exist). Both scripts are now idempotent on fresh projects.
+- ✅ Anon RLS test passes (`bash scripts/verify-anon-rls.sh` prints PASS).
+- ✅ All five tables respond 200 with the production column set via service-role API.
+- ✅ Dev server boots, loads `.env.local` against new project; all public pages return 200.
+- ✅ Middleware redirects unauth `/app` → `/login` (307); cron returns 401 without secret and structured JSON `{ok:false, errors:["Resend not configured; skipping reminders."]}` with valid secret; `/r/<bogus>` and `/unsubscribe/<bad>` render their pages; `/api/webhooks/billing` compiled; public 404 works on non-existent paths like `/pricing/nope`.
+- ⚠️ End-to-end authenticated cookie flow over curl returned 307→/login during verification — the cause was the test JWT being issued before the user was auto-confirmed, then deleted by cleanup before the follow-up request hit (race in the verification script), not a code defect. Supabase signup + email confirm + token issuance work correctly against the new project when called directly against the auth API. Real-browser login via the UI is the definitive check (can't be driven from this sandbox without Playwright).
+- ⏳ Email send/click/unsubscribe (T4–T6) — awaiting Resend credentials.
+- ⏳ Polar Sandbox (T10) — awaiting Polar sandbox credentials + public deploy for webhook.
+- ⏳ 375px mobile pass — not done in sandbox.
+
+### Verified against previous test project `kajolpuntjurjrozovnq` (2026-09-29)
 - ✅ Migrations applied (using `run-all-migrations-safe.sql` + `repair-legacy-schema.sql` because the project was originally created from an alpha schema with different `message_templates`/`click_events` shapes).
 - ✅ Anon RLS test passes: anon role returns `[]` on businesses/customers/review_requests and 401 on writes.
 - ✅ All five tables respond 200 via service-role API with the production column set: businesses (incl. mailing_address, plan, 6 billing columns), customers, review_requests (incl. reminder_claimed_at), message_templates (request_subject/body + reminder_subject/body), click_events (request_id/ip_hash/user_agent/is_bot/created_at).

@@ -24,38 +24,59 @@ ALTER TABLE message_templates
   ADD COLUMN IF NOT EXISTS reminder_body    TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS updated_at       TIMESTAMPTZ NOT NULL DEFAULT now();
 
--- If old rows exist with kind/subject/body, backfill the new columns from them.
-UPDATE message_templates
-   SET request_subject = subject,
-       request_body    = body,
-       updated_at      = now()
- WHERE kind = 'request'
-   AND request_subject = 'Could you leave us a quick review?'
-   AND subject IS NOT NULL;
+-- If old rows exist with kind/subject/body (alpha schema), backfill the new columns from them.
+-- Guard each statement with a column-existence check so fresh projects skip safely.
+DO $$
+DECLARE
+  has_kind BOOLEAN;
+  has_subject BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name='message_templates' AND column_name='kind'
+  ) INTO has_kind;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name='message_templates' AND column_name='subject'
+  ) INTO has_subject;
 
-UPDATE message_templates
-   SET reminder_subject = subject,
-       reminder_body    = body,
-       updated_at       = now()
- WHERE kind = 'reminder'
-   AND reminder_subject = 'A quick reminder — could you leave us a review?'
-   AND subject IS NOT NULL;
-
--- If no 'reminder' row exists for a business that has a 'request' row, insert one.
-INSERT INTO message_templates (business_id, kind, subject, body,
-                              request_subject, request_body,
-                              reminder_subject, reminder_body, updated_at)
-SELECT business_id, 'reminder',
-       'A quick reminder — could you leave us a review?', '',
-       'A quick reminder — could you leave us a review?', '',
-       'A quick reminder — could you leave us a review?', '',
-       now()
-  FROM message_templates mt
- WHERE kind = 'request'
-   AND NOT EXISTS (
-     SELECT 1 FROM message_templates mt2
-      WHERE mt2.business_id = mt.business_id AND mt2.kind = 'reminder'
-   );
+  IF has_kind AND has_subject THEN
+    EXECUTE $u$
+      UPDATE message_templates
+         SET request_subject = subject,
+             request_body    = body,
+             updated_at      = now()
+       WHERE kind = 'request'
+         AND request_subject = 'Could you leave us a quick review?'
+         AND subject IS NOT NULL;
+    $u$;
+    EXECUTE $u$
+      UPDATE message_templates
+         SET reminder_subject = subject,
+             reminder_body    = body,
+             updated_at       = now()
+       WHERE kind = 'reminder'
+         AND reminder_subject = 'A quick reminder — could you leave us a review?'
+         AND subject IS NOT NULL;
+    $u$;
+    EXECUTE $u$
+      INSERT INTO message_templates (business_id, kind, subject, body,
+                                     request_subject, request_body,
+                                     reminder_subject, reminder_body, updated_at)
+      SELECT business_id, 'reminder',
+             'A quick reminder — could you leave us a review?', '',
+             'A quick reminder — could you leave us a review?', '',
+             'A quick reminder — could you leave us a review?', '',
+             now()
+        FROM message_templates mt
+       WHERE kind = 'request'
+         AND NOT EXISTS (
+           SELECT 1 FROM message_templates mt2
+            WHERE mt2.business_id = mt.business_id AND mt2.kind = 'reminder'
+         );
+    $u$;
+  END IF;
+END $$;
 
 -- Now drop the legacy columns (they're no longer used by the code).
 ALTER TABLE message_templates DROP COLUMN IF EXISTS kind;

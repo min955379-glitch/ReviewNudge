@@ -7,6 +7,9 @@
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- Ensure the helper schema exists (fresh Supabase projects don't have it).
+CREATE SCHEMA IF NOT EXISTS private;
+
 -- Helper: short_code (nanoid-like) 8 alnum
 CREATE OR REPLACE FUNCTION generate_short_code() RETURNS TEXT AS $$
 DECLARE
