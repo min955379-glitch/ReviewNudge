@@ -91,6 +91,7 @@ export async function createCheckout({
 
   const checkout = await polar.checkouts.create({
     products: [productId],
+    paymentProcessor: "stripe",
     successUrl,
     returnUrl: cancelUrl,
     customerEmail: customerEmail ?? undefined,
@@ -102,7 +103,8 @@ export async function createCheckout({
       reviewnudge_version: 1,
     },
     ...(existingCustomerId ? { customerId: existingCustomerId } : {}),
-  })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any)
 
   return checkout.url
 }
