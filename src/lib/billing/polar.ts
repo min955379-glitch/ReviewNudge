@@ -36,8 +36,12 @@ export function getPolarClient(): Polar {
   }
   _polar = new Polar({
     accessToken: process.env.POLAR_ACCESS_TOKEN,
-    // Sandbox for development, production when deployed.
-    server: process.env.NODE_ENV === "production" ? "production" : "sandbox",
+    // Default: sandbox for development, production for deployed builds.
+    // Set POLAR_SERVER=sandbox explicitly on Vercel if you want to point a
+    // production deploy at the Polar sandbox for end-to-end testing.
+    server:
+      (process.env.POLAR_SERVER as "sandbox" | "production" | undefined) ??
+      (process.env.NODE_ENV === "production" ? "production" : "sandbox"),
   })
   return _polar
 }
