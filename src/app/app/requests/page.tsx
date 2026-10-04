@@ -17,7 +17,7 @@ export default async function RequestsPage() {
 
   const { data: rawRequests } = await supabase
     .from("review_requests")
-    .select("*, customer:customers(full_name, email)")
+    .select("*, customer:customers(name, email)")
     .eq("business_id", business.id)
     .order("created_at", { ascending: false })
     .limit(200)
@@ -30,11 +30,11 @@ export default async function RequestsPage() {
     manually_marked_reviewed: boolean | null
     error_message: string | null
     created_at: string
-    customer: { full_name: string | null; email: string | null } | null
+    customer: { name: string | null; email: string | null } | null
   }
   const requests = ((rawRequests ?? []) as RawRow[]).map((r) => ({
     id: r.id,
-    customer_name: r.customer?.full_name ?? null,
+    customer_name: r.customer?.name ?? null,
     customer_email: r.customer?.email ?? "",
     status: r.status,
     first_clicked_at: r.first_clicked_at,

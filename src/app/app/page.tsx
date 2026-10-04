@@ -130,7 +130,7 @@ export default async function DashboardPage() {
   // Recent requests
   const { data: recent } = await supabase
     .from("review_requests")
-    .select("id, created_at, status, sent_at, first_clicked_at, customer:customers(full_name, email)")
+    .select("id, created_at, status, sent_at, first_clicked_at, customer:customers(name, email)")
     .eq("business_id", business.id)
     .order("created_at", { ascending: false })
     .limit(5)
@@ -140,7 +140,7 @@ export default async function DashboardPage() {
     created_at: string
     sent_at: string | null
     first_clicked_at: string | null
-    customer: { full_name: string | null; email: string | null } | null
+    customer: { name: string | null; email: string | null } | null
   }
   const recentRows = ((recent as unknown as { data: RecentRow[] | null }).data ?? []) as RecentRow[]
 
@@ -315,7 +315,7 @@ export default async function DashboardPage() {
                   return (
                     <li key={r.id} className="flex items-center justify-between py-2 text-sm">
                       <div>
-                        <div className="font-medium">{r.customer?.full_name || "(no name)"}</div>
+                        <div className="font-medium">{r.customer?.name || "(no name)"}</div>
                         <div className="text-xs text-muted-foreground">{r.customer?.email}</div>
                       </div>
                       <Badge variant={variant as "default" | "secondary" | "destructive" | "success"}>{label}</Badge>
