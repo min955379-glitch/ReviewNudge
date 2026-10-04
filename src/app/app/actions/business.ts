@@ -114,53 +114,78 @@ export async function createBusiness(_prev: StepState, formData: FormData): Prom
 }
 
 export async function saveOnboardingStep2(_prev: StepState, formData: FormData): Promise<StepState> {
-  const { supabase, user } = await requireUser()
-  const sb = supabase as unknown as Sb
-  const business = await getCurrentBusiness(sb, user.id)
+  try {
+    const { supabase, user } = await requireUser()
+    const sb = supabase as unknown as Sb
+    const business = await getCurrentBusiness(sb, user.id)
 
-  const raw = toValues(formData)
-  const parsed = onboardingStep2Schema.safeParse(raw)
-  if (!parsed.success) return { errors: flatten(parsed.error.flatten()), values: raw }
+    const raw = toValues(formData)
+    const parsed = onboardingStep2Schema.safeParse(raw)
+    if (!parsed.success) return { errors: flatten(parsed.error.flatten()), values: raw }
 
-  const res = await sb
-    .from("businesses")
-    .update({
-      google_review_url: parsed.data.google_review_url,
-      reply_to_email: parsed.data.reply_to_email || null,
-    } as BizUpdate)
-    .eq("id", business.id)
+    const res = await sb
+      .from("businesses")
+      .update({
+        google_review_url: parsed.data.google_review_url,
+        reply_to_email: parsed.data.reply_to_email || null,
+      } as BizUpdate)
+      .eq("id", business.id)
 
-  if (res.error) return { errors: { _form: res.error.message }, values: raw }
-  redirect("/app/onboarding?step=3")
+    if (res.error) return { errors: { _form: res.error.message }, values: raw }
+    redirect("/app/onboarding?step=3")
+  } catch (e) {
+    if (e instanceof Error && e.message === "NEXT_REDIRECT") throw e
+    console.error("[saveOnboardingStep2] error:", e)
+    const values = (() => { try { return toValues(formData) } catch { return {} as Record<string, string> } })()
+    return { errors: { _form: e instanceof Error ? e.message : "An unexpected error occurred. Please try again." }, values }
+  }
 }
 
 export async function saveOnboardingStep3(_prev: StepState, formData: FormData): Promise<StepState> {
-  const { supabase, user } = await requireUser()
-  const sb = supabase as unknown as Sb
-  const business = await getCurrentBusiness(sb, user.id)
+  try {
+    const { supabase, user } = await requireUser()
+    const sb = supabase as unknown as Sb
+    const business = await getCurrentBusiness(sb, user.id)
 
-  const raw = toValues(formData)
-  const parsed = onboardingStep3Schema.safeParse(raw)
-  if (!parsed.success) return { errors: flatten(parsed.error.flatten()), values: raw }
+    // Defensive check: if the user somehow got to step 3 without saving a Google
+    // review URL (e.g. via browser back/forward, or if step 2 save failed silently),
+    // send them back to step 2 rather than throwing an uncaught redirect from the
+    // dashboard.
+    if (!business.google_review_url) {
+      redirect("/app/onboarding?step=2")
+    }
 
-  // Ensure the single templates row exists, then update request columns.
-  const { data: existing } = await sb.from("message_templates").select("id").eq("business_id", business.id).maybeSingle()
-  let res
-  if (!existing) {
-    res = await sb.from("message_templates").insert({
-      business_id: business.id,
-      request_subject: parsed.data.request_subject,
-      request_body: parsed.data.request_body,
-    })
-  } else {
-    res = await sb
-      .from("message_templates")
-      .update({ request_subject: parsed.data.request_subject, request_body: parsed.data.request_body, updated_at: new Date().toISOString() })
-      .eq("business_id", business.id)
+    const raw = toValues(formData)
+    const parsed = onboardingStep3Schema.safeParse(raw)
+    if (!parsed.success) return { errors: flatten(parsed.error.flatten()), values: raw }
+
+    // Ensure the single templates row exists, then update request columns.
+    const { data: existing } = await sb.from("message_templates").select("id").eq("business_id", business.id).maybeSingle()
+    let res
+    if (!existing) {
+      res = await sb.from("message_templates").insert({
+        business_id: business.id,
+        request_subject: parsed.data.request_subject,
+        request_body: parsed.data.request_body,
+      })
+    } else {
+      res = await sb
+        .from("message_templates")
+        .update({ request_subject: parsed.data.request_subject, request_body: parsed.data.request_body, updated_at: new Date().toISOString() })
+        .eq("business_id", business.id)
+    }
+
+    if (res.error) return { errors: { _form: res.error.message }, values: raw }
+    redirect("/app")
+  } catch (e) {
+    // Next's redirect() throws a special N/reDIRECTION signal; re-throw it so
+    // navigation still works. Anything else becomes a user-visible form error
+    // instead of bubbling to the global error boundary.
+    if (e instanceof Error && e.message === "NEXT_REDIRECT") throw e
+    console.error("[saveOnboardingStep3] error:", e)
+    const values = (() => { try { return toValues(formData) } catch { return {} as Record<string, string> } })()
+    return { errors: { _form: e instanceof Error ? e.message : "An unexpected error occurred. Please try again." }, values }
   }
-
-  if (res.error) return { errors: { _form: res.error.message }, values: raw }
-  redirect("/app")
 }
 
 export async function updateBusinessProfile(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
