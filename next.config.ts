@@ -1,6 +1,6 @@
 import type { NextConfig } from "next"
 
-const cspHeader = 
+const cspHeader = `
   default-src 'self';
   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com;
   style-src 'self' 'unsafe-inline';
@@ -13,7 +13,7 @@ const cspHeader =
   base-uri 'self';
   object-src 'none';
   upgrade-insecure-requests
-.replace(/\s+/g, " ").trim()
+`.replace(/\s+/g, " ").trim()
 
 const nextConfig: NextConfig = {
   async headers() {
