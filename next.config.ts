@@ -1,18 +1,19 @@
 import type { NextConfig } from "next"
 
-const cspHeader = `
+const cspHeader = 
   default-src 'self';
-  script-src 'self' 'unsafe-inline' 'unsafe-eval';
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com;
   style-src 'self' 'unsafe-inline';
-  img-src 'self' data: blob: https:;
+  img-src 'self' data: blob: https: https://*.google.com https://*.googleusercontent.com https://*.doubleclick.net;
   font-src 'self' data:;
-  connect-src 'self' https://*.supabase.co https://api.resend.com ws: wss:;
+  connect-src 'self' https://*.supabase.co https://api.resend.com https://pagead2.googlesyndication.com https://*.google.com https://*.doubleclick.net ws: wss:;
+  frame-src 'self' https://googleads.g.doubleclick.net https://*.google.com https://tpc.googlesyndication.com;
   frame-ancestors 'none';
   form-action 'self';
   base-uri 'self';
   object-src 'none';
   upgrade-insecure-requests
-`.replace(/\s+/g, " ").trim()
+.replace(/\s+/g, " ").trim()
 
 const nextConfig: NextConfig = {
   async headers() {
