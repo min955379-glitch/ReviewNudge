@@ -228,6 +228,16 @@ Email deliverability requires domain verification with Resend — add the SPF, D
 - The consent checkbox ("This customer has done business with me and I have permission to contact them") is required before sending.
 - No rewards, discounts, or incentives for reviews are offered — this violates Google policy and FTC guidelines.
 
+
+## Google AdSense Integration
+
+The website is configured with Google AdSense for web monetization:
+- **Publisher ID:** ca-pub-7325835183643107
+- **Verification:** public/ads.txt is present at domain root (google.com, pub-7325835183643107, DIRECT, f08c47fec0942fa0)
+- **Script Loading:** Automated via Next.js <Script> inside src/app/layout.tsx
+- **Ad Components:** Reusable, responsive <AdBanner /> component in src/components/ads/ad-banner.tsx
+- **Security & Headers:** Strict Content Security Policy (CSP) in 
+ext.config.ts allows Google AdSense and DoubleClick scripts, frames, and assets.
 ## Links & references
 
 - [Google's review policy](https://support.google.com/business/answer/3474050)
