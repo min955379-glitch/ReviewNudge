@@ -34,8 +34,10 @@ export function AdBanner({
     }
   }, [])
 
+  const containerClasses = "overflow-hidden text-center my-6 " + (className || "")
+
   return (
-    <div className={overflow-hidden text-center my-6 }>
+    <div className={containerClasses}>
       <ins
         className="adsbygoogle"
         style={{ display: "block" }}
