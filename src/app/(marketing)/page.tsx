@@ -3,6 +3,7 @@ import { Mail, MousePointerClick, Clock, ShieldCheck, LineChart, Upload, CheckCi
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { AdBanner } from "@/components/ads/ad-banner"
 
 export const metadata = {
   title: "ReviewNudge — Get more Google reviews on autopilot",
@@ -205,6 +206,11 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Sponsored Ad Banner */}
+      <section className="mx-auto max-w-4xl px-4 py-6 text-center sm:px-6 lg:px-8">
+        <AdBanner format="auto" />
       </section>
 
       {/* Final CTA */}
