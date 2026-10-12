@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { headers } from "next/headers"
+import Script from "next/script"
 import { AlertCircle } from "lucide-react"
 import "./globals.css"
 
@@ -8,7 +9,7 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_APP_URL || "https://reviewnudge.app"
   ),
   title: {
-    default: "ReviewNudge — Get more Google reviews on autopilot",
+    default: "ReviewNudge - Get more Google reviews on autopilot",
     template: "%s | ReviewNudge",
   },
   description:
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   openGraph: {
     type: "website",
-    title: "ReviewNudge — Get more Google reviews on autopilot",
+    title: "ReviewNudge - Get more Google reviews on autopilot",
     description:
       "Send Google review requests in 10 seconds. Automatic reminders, click tracking, and compliance-friendly emails.",
     siteName: "ReviewNudge",
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "ReviewNudge — Get more Google reviews on autopilot",
+    title: "ReviewNudge - Get more Google reviews on autopilot",
     description:
       "Send Google review requests in 10 seconds. Automatic reminders, click tracking, and compliance-friendly emails.",
     images: ["/icon.svg"],
@@ -58,7 +59,7 @@ async function SetupBanner() {
       <div className="mx-auto flex max-w-7xl items-start gap-2">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <p className="font-medium">Setup required — Supabase not configured.</p>
+          <p className="font-medium">Setup required - Supabase not configured.</p>
           <p className="text-amber-800">
             Copy <code className="rounded bg-amber-100 px-1">.env.example</code> to{" "}
             <code className="rounded bg-amber-100 px-1">.env.local</code> and fill in{" "}
@@ -78,6 +79,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7325835183643107"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+      </head>
       <body className="min-h-screen bg-background font-sans antialiased">
         <SetupBanner />
         {children}
